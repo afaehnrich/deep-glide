@@ -3,6 +3,7 @@ from gym_jsbsim_simple.environment import JsbSimEnv
 from gym_jsbsim_simple.tasks import Shaping, MyFlightTask
 import toml
 from datetime import datetime
+import RL_wrapper_gym
 
 cfg = toml.load('gym-jsbsim-cfg.toml')
 
