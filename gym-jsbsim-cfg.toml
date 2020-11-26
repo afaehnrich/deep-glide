@@ -4,14 +4,15 @@ title = "gym-jsbsim Configuration"
 
 [environment]
     #assertion: simulation_freq >= controller_freq >= observation_freq
-    simulation_stepwidth = 0.01  # Step width of JSBSim in seconds
-    controller_stepwidth = 0.02 # Step width of controller actions (PID, Servo) seconds
+    simulation_stepwidth = 0.02  # Step width of JSBSim in seconds
+    controller_stepwidth = 0.04 # Step width of controller actions (PID, Servo) seconds
     observation_stepwidth = 1 # Step width of observations delivered to openAI gym in seconds
     aircraft = "cessna172P"
     path_jsbsim = "jsbsim_models" #an System anpassen. 
     # Im Unterordner "aircraft" sollten die Definitionen der FLugzeuge zu finden sein.
     actions = ['target_roll']
-    observations = ['heading_rad']
+    #actions = ['noop']
+    observations = ['roll_rad', 'heading_rad','dist_travel_lat_m','dist_travel_lon_m']
 
     [environment.initial_state]
         initial_altitude_ft = 5000
@@ -25,32 +26,38 @@ title = "gym-jsbsim Configuration"
         initial_q_radps = 0
         initial_r_radps = 0
         initial_roc_fpm = 0
-        initial_heading_deg = 270
+        initial_heading_deg = 180
         gear = 0.0 # landing gear raised
         gear_all_cmd = 0.0 #l anding gear raised
         target_roll = 0.0
         target_pitch = 0
-        target_heading = 0.0
+        target_heading = 1.5
+        noop = 0.0
 
     [environment.init_sequence]
+        # for engine-on flight:
         all_engine_running = -1 # -1 = running; 0 = off
         throttle_cmd = 0.8
         mixture_cmd = 0.8
+        # for engine-off flight:
+        #all_engine_running = 0 # -1 = running; 0 = off
+        #throttle_cmd = 0
+        #mixture_cmd = 0
 
 [pid]
 
     [pid.heading]
         type = 'pid_angle'
         input = 'heading_rad'
-        output = 'target_roll'
+        output = 'noop' # 'target_roll'
         target = 'target_heading'
         angle_max = 6.28318530718 # 2 * math.pi
         out_min = -0.75
         out_max = 0.75
-        p = 0.2
-        i = 0.00001
-        d = 0.000
-        anti_windup = 10
+        p = 0.7 #0.5
+        i = 0.0 #0.0001
+        d = 0.0
+        anti_windup = 2
 
     [pid.roll]
         type = 'pid_angle'
@@ -80,12 +87,13 @@ title = "gym-jsbsim Configuration"
 
 [visualiser]
 
-    #enable  true: Visualisierung eingeschaltet, Simulation in "Realgeschwindigkeit"
+    # enable  true: Visualisierung eingeschaltet, Simulation in "Realgeschwindigkeit"
     #       false: Visualisierung abgeschaltet, Simulation ohne Delay.
+    #enable = true
     enable = true
 
     [visualiser.flightgear]
-        timefactor = 1  # sim speed relative to realtime, higher is faster
+        timefactor = 10  # sim speed relative to realtime, higher is faster
         # start_fgfs  true: flightgear wird vom openAI-Gym gestartet.
         #            false: flightgear muss vorher manuell gestartet werden. (siehe Datei flightgear.sh)
         # manuelles Starten ist zuverlässiger und benötigt weniger Zeit. 
@@ -111,8 +119,8 @@ title = "gym-jsbsim Configuration"
     [properties.target_roll]
         name = 'custom/target-roll'
         description = 'target for PID roll'
-        min = -1.57079632679 #-0.5 * math.pi
-        max = 1.57079632679 #0.5 * math.pi
+        min = -0.7 #-1.57079632679 #-0.5 * math.pi
+        max = 0.7  #1.57079632679 #0.5 * math.pi
 
     [properties.target_pitch]
         name = 'custom/target-pitch'
@@ -125,6 +133,12 @@ title = "gym-jsbsim Configuration"
         description = 'target for PID heading'
         min = 0.0
         max = 6.28318530718 #2.0 * math.pi
+
+    [properties.noop]
+        name = 'custom/noop'
+        description = 'action to do nothing'
+        min = 0.0
+        max = 1.0
 
 # position and attitude
     [properties.altitude_sl_ft]
@@ -178,10 +192,14 @@ title = "gym-jsbsim Configuration"
     [properties.dist_travel_lat_m]
         name = 'position/distance-from-start-lat-mt'
         description = 'latitude distance travelled from starting position [m]'
+        min = -100000
+        max = 100000
     [properties.dist_travel_lon_m]
         name = 'position/distance-from-start-lon-mt'
         description = 'longitude distance travelled from starting position [m]'
-
+        min = -100000
+        max = 100000
+    
 # velocities
     [properties.u_fps]
         name = 'velocities/u-fps'
