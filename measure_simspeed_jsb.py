@@ -23,8 +23,8 @@ def simCycle(name, env, outer, inner):
 env = gym_jsbsim_simple.environment.JsbSimEnv(cfg = cfg, task_type = MyFlightTask, shaping = Shaping.STANDARD)
 name = 'JSBSIM'
 simCycle(name, env, 1, 100)
-simCycle(name, env, 10, 100)
-simCycle(name, env, 1, 10000)
-simCycle(name, env, 10, 1000)
+#simCycle(name, env, 10, 100)
+#simCycle(name, env, 1, 10000)
+#simCycle(name, env, 10, 1000)
 simCycle(name, env, 100, 100)
 env.close()

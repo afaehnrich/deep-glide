@@ -25,21 +25,26 @@ batch_size = 128
 rewards = []
 avg_rewards = []
 
-for episode in range(50):
+for episode in range(0,150,1):
     state = env.reset()
     noise.reset()
     episode_reward = 0
     
     for step in range(500):
-        action = agent.get_action(state)
-        action = noise.get_action(action, step)
-        action = env.action_space.sample()
+        if step%10 == 0 or episode > 50:
+            # Am Anfang actions wiederholen, um 
+            # trotz langsamer Reaktion des Flugzeugs zu lernen
+            # dann actions bei jedem Schritt
+            action = agent.get_action(state)
+            action = noise.get_action(action, step)
+            #action = env.action_space.sample()
+            #action=[0,0]
         new_state, reward, done, _ = env.step(action) 
         agent.memory.push(state, action, reward, new_state, done)
         
         if len(agent.memory) > batch_size:
             agent.update(batch_size)        
-        if (episode+1) % 50 == 0:
+        if (episode+1) % 500 == 0:
             env.render()
             print('action={} state={} reward={}'.format(action, new_state, reward),end='\r')
         state = new_state
