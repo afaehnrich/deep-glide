@@ -10,13 +10,16 @@ import toml
 import gym_jsbsim_simple
 import gym_jsbsim_simple.properties as prp
 from gym_jsbsim_simple.environment import JsbSimEnv
-from gym_jsbsim_simple.tasks import Shaping, MyFlightTask
+from gym_jsbsim_simple.tasks import *
+import random
 
 np.set_printoptions(precision=2, suppress=True)
 
 cfg = toml.load('gym-jsbsim-cfg.toml')
+#env = NormalizedEnv(gym_jsbsim_simple.environment.JsbSimEnv(cfg = cfg, 
+#        task_type = AFHeadingControlTask, shaping = Shaping.STANDARD))
 env = NormalizedEnv(gym_jsbsim_simple.environment.JsbSimEnv(cfg = cfg, 
-        task_type = MyFlightTask, shaping = Shaping.STANDARD))
+        task_type = FlyAlongLineTask, shaping = Shaping.STANDARD))
 #env = NormalizedEnv(gym.make("Pendulum-v0"))
 device = torch.device("cpu")
 agent = DDPGagent(env, device)
@@ -29,7 +32,7 @@ for episode in range(0,150,1):
     state = env.reset()
     noise.reset()
     episode_reward = 0
-    
+    env.set_property('heading_deg', random.randrange(0,360,1))
     for step in range(500):
         if step%10 == 0 or episode > 50:
             # Am Anfang actions wiederholen, um 

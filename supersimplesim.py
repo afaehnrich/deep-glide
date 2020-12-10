@@ -146,11 +146,13 @@ roll = 0.7
 control = np.array([
             aoa, 
             roll])
-fdm = fdm_init()
+fgfs_udp = FGFS_UDP_Native()
+fdm = Native_FDM_Data()
+fdm = fgfs_udp.fdm_init(fdm)
 sim = Simplesim()
 print('state: {} lat={:0.6f} lon={:0.6f}'.format(sim.state, fdm.latitude, fdm.longitude))
 udp = UDP_transceiver(receiver=False)
-time_step = 1/60
+time_step = 1/10
 state = sim.sim_step(control, time_step, 0)
 print('state: {} lat={:0.6f} lon={:0.6f}'.format(state, fdm.latitude, fdm.longitude))
 sim_time = 0
