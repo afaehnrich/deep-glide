@@ -16,23 +16,29 @@ import random
 np.set_printoptions(precision=2, suppress=True)
 
 cfg = toml.load('gym-jsbsim-cfg.toml')
-#env = NormalizedEnv(gym_jsbsim_simple.environment.JsbSimEnv(cfg = cfg, 
-#        task_type = AFHeadingControlTask, shaping = Shaping.STANDARD))
 env = NormalizedEnv(gym_jsbsim_simple.environment.JsbSimEnv(cfg = cfg, 
-        task_type = FlyAlongLineTask, shaping = Shaping.STANDARD))
+        task_type = AFHeadingControlTask, shaping = Shaping.STANDARD))
+#env = NormalizedEnv(gym_jsbsim_simple.environment.JsbSimEnv(cfg = cfg, 
+#        task_type = FlyAlongLineTask, shaping = Shaping.STANDARD))
 #env = NormalizedEnv(gym.make("Pendulum-v0"))
 device = torch.device("cpu")
+#device = torch.device("cuda")
 agent = DDPGagent(env, device)
 noise = OUNoise(env.action_space)
 batch_size = 128
 rewards = []
 avg_rewards = []
-
+plt.plot(0,0,'.')
+plt.ion()
+plt.show()   
+plt.pause(0.001)        
 for episode in range(0,150,1):
     state = env.reset()
     noise.reset()
     episode_reward = 0
     env.set_property('heading_deg', random.randrange(0,360,1))
+    routex=[]
+    routey=[]
     for step in range(500):
         if step%10 == 0 or episode > 50:
             # Am Anfang actions wiederholen, um 
@@ -44,10 +50,11 @@ for episode in range(0,150,1):
             #action=[0,0]
         new_state, reward, done, _ = env.step(action) 
         agent.memory.push(state, action, reward, new_state, done)
-        
+        routex.append(env.get_property('lat_geod_deg'))
+        routey.append(env.get_property('lng_geoc_deg'))
         if len(agent.memory) > batch_size:
             agent.update(batch_size)        
-        if (episode+1) % 500 == 0:
+        if (episode+1) % 150 == 0:
             env.render()
             print('action={} state={} reward={}'.format(action, new_state, reward),end='\r')
         state = new_state
@@ -59,6 +66,10 @@ for episode in range(0,150,1):
             sys.stdout.write("episode: {}, reward: {}, average _reward: {:.2f} \n".
                     format(episode, np.round(episode_reward, decimals=2), 
                     np.mean(rewards[-10:])))
+            plt.clf()
+            plt.plot(routex,routey,'.')
+            plt.show()
+            plt.pause(0.001)        
             break
 
     rewards.append(episode_reward)
