@@ -14,14 +14,16 @@ from gym_jsbsim_simple.tasks import *
 import random
 
 np.set_printoptions(precision=2, suppress=True)
+enable_fgfs = False
 
 cfg = toml.load('gym-jsbsim-cfg.toml')
-#env = NormalizedEnv(gym_jsbsim_simple.environment.JsbSimEnv(cfg = cfg, 
-#        task_type = AFHeadingControlTask, shaping = Shaping.STANDARD))
+
 env = NormalizedEnv(gym_jsbsim_simple.environment.JsbSimEnv(cfg = cfg, 
-        task_type = FlyAlongLineTask, shaping = Shaping.STANDARD))
-device = torch.device("cpu")
-#device = torch.device("cuda")
+        task_type = AFHeadingControlTask, shaping = Shaping.STANDARD))
+#env = NormalizedEnv(gym_jsbsim_simple.environment.JsbSimEnv(cfg = cfg, 
+#        task_type = FlyAlongLineTask, shaping = Shaping.STANDARD))
+#device = torch.device("cpu")
+device = torch.device("cuda")
 agent = DDPGagent(env, device)
 noise = OUNoise(env.action_space)
 batch_size = 128
@@ -30,8 +32,6 @@ avg_rewards = []
 p1 = plt.subplot(2,1,1)
 p2 = plt.subplot(2,1,2)
 p1.plot(0,0,'.')
-#p2.xlabel('Episode')
-#p2.ylabel('Reward')
 plt.ion()
 plt.show()   
 plt.pause(0.001)        
@@ -49,21 +49,17 @@ for episode in range(0,150,1):
             # dann actions bei jedem Schritt
             action = agent.get_action(state)
             action = noise.get_action(action, step)
-            #action = env.action_space.sample()
-            #action=[0,0]
         new_state, reward, done, _ = env.step(action) 
         agent.memory.push(state, action, reward, new_state, done)
         routex.append(env.get_property('lat_geod_deg'))
         routey.append(env.get_property('lng_geoc_deg'))
         if len(agent.memory) > batch_size:
             agent.update(batch_size)        
-        if (episode+1) % 150 == 0:
+        if (episode+1) % 150 == 0 and enable_fgfs:
             env.render()
             print('action={} state={} reward={}'.format(action, new_state, reward),end='\r')
         state = new_state
         episode_reward += reward
-        #if step == 1:
-        #    print (action, '  ', state)
         if done:
             if episode % 10 == 0: print()
             sys.stdout.write("episode: {}, reward: {}, average _reward: {:.2f} \n".
@@ -81,10 +77,4 @@ for episode in range(0,150,1):
     p2.plot(avg_rewards)
 
 plt.ioff()
-#plt.clf()
-#plt.plot(rewards)
-#plt.plot(avg_rewards)
-#plt.plot()
-#plt.xlabel('Episode')
-#plt.ylabel('Reward')
 plt.show()
