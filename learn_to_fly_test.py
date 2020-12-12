@@ -1,7 +1,6 @@
 import sys
 import gym
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 from RL_wrapper_gym.DDPG import DDPGagent
 from RL_wrapper_gym.utils import *
@@ -22,8 +21,11 @@ env = NormalizedEnv(gym_jsbsim_simple.environment.JsbSimEnv(cfg = cfg,
         task_type = AFHeadingControlTask, shaping = Shaping.STANDARD))
 #env = NormalizedEnv(gym_jsbsim_simple.environment.JsbSimEnv(cfg = cfg, 
 #        task_type = FlyAlongLineTask, shaping = Shaping.STANDARD))
-#device = torch.device("cpu")
-device = torch.device("cuda")
+if torch.cuda.is_available():
+     device = torch.device("cuda")
+else:
+    device = torch.device("cpu")
+print('Torch Device: {}'.format(device))
 agent = DDPGagent(env, device)
 noise = OUNoise(env.action_space)
 batch_size = 128
