@@ -12,9 +12,7 @@ title = "gym-jsbsim Configuration"
     # Im Unterordner "aircraft" sollten die Definitionen der FLugzeuge zu finden sein.
     actions = ['target_roll']
     #actions = ['noop']
-    #observations = ['roll_rad', 'heading_rad','dist_travel_lat_m','dist_travel_lon_m']
-    observations = ['roll_rad', 'heading_rad','p_radps','q_radps','r_radps','lat-geod-deg','long-gc-deg']
-
+    observations = ['roll_rad', 'heading_rad','dist_travel_lat_m','dist_travel_lon_m']
 
     [environment.initial_state]
         initial_altitude_ft = 5000
@@ -48,18 +46,18 @@ title = "gym-jsbsim Configuration"
 
 [pid]
 
-#    [pid.heading]
-#        type = 'pid_angle'
-#        input = 'heading_rad'
-#        output = 'noop' # 'target_roll'
-#        target = 'target_heading'
-#        angle_max = 6.28318530718 # 2 * math.pi
-#        out_min = -0.75
-#        out_max = 0.75
-#        p = 0.7 #0.5
-#        i = 0.0 #0.0001
-#        d = 0.0
-#        anti_windup = 2
+    [pid.heading]
+        type = 'pid_angle'
+        input = 'heading_rad'
+        output = 'noop' # 'target_roll'
+        target = 'target_heading'
+        angle_max = 6.28318530718 # 2 * math.pi
+        out_min = -0.75
+        out_max = 0.75
+        p = 0.7 #0.5
+        i = 0.0 #0.0001
+        d = 0.0
+        anti_windup = 2
 
     [pid.roll]
         type = 'pid_angle'
