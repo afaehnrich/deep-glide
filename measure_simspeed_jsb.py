@@ -1,6 +1,6 @@
-import gym_jsbsim_simple
-from gym_jsbsim_simple.environment import JsbSimEnv
-from gym_jsbsim_simple.tasks import *
+import jsbgym_flex
+from jsbgym_flex.environment import JsbSimEnv
+from jsbgym_flex.tasks import *
 import toml
 from datetime import datetime
 import RL_wrapper_gym
@@ -20,7 +20,7 @@ def simCycle(name, env, outer, inner):
     dt = (after-before)
     print ('Simulation {}: {}x{} steps: {}.{}s'.format(name, outer, inner, dt.seconds, dt.microseconds) )
 
-env = gym_jsbsim_simple.environment.JsbSimEnv(cfg = cfg, task_type = AFHeadingControlTask, shaping = Shaping.STANDARD)
+env = jsbgym_flex.environment.JsbSimEnv(cfg = cfg, task_type = AFHeadingControlTask, shaping = Shaping.STANDARD)
 name = 'JSBSIM' 
 simCycle(name, env, 1, 100)
 simCycle(name, env, 10, 100)
