@@ -1,3 +1,3 @@
 #!/bin/sh
-docker build -f ./Dockerfile -t eaglelanding:latest ../
+docker build -f ./Dockerfile -t deep-glide:latest ../
 

@@ -8,13 +8,13 @@ from matplotlib import cm
 import jsbgym_flex
 import jsbgym_flex.properties as prp
 from jsbgym_flex.environment import JsbSimEnv
-from jsbgym_flex.tasks import Shaping, MyFlightTask
+from jsbgym_flex.tasks import *
 import pathlib
 import random
 import math
 import toml
 
-cfg = toml.load('gym-jsbsim-cfg.toml')
+cfg = toml.load('gym-jsbsim-cfg_pid.toml')
 
 _t_head = cfg.get('environment').get('initial_state').get('target_heading')
 _pid_head_p = cfg.get('pid').get('heading').get('p')
@@ -29,7 +29,7 @@ def simulate(steps, render = False):
         if render: 
             env.render()
         if i%2 ==0:
-            cfg = toml.load('gym-jsbsim-cfg.toml')
+            cfg = toml.load('gym-jsbsim-cfg_pid.toml')
             t_head = cfg.get('environment').get('initial_state').get('target_heading')
             pid_head_p = cfg.get('pid').get('heading').get('p')
             pid_head_i = cfg.get('pid').get('heading').get('i')
@@ -63,6 +63,6 @@ def simulate(steps, render = False):
         env.step(np.array(action))
     return
 
-env = jsbgym_flex.environment.JsbSimEnv(cfg = cfg, task_type = MyFlightTask, shaping = Shaping.STANDARD)
+env = jsbgym_flex.environment.JsbSimEnv(cfg = cfg, task_type = AFHeadingControlTask, shaping = Shaping.STANDARD)
 render = not (cfg.get('visualiser') or {}).get('enable') == False
 simulate(10000, render)
