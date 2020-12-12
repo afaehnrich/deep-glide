@@ -1,3 +1,3 @@
 #!/bin/sh
-docker build -f ./Dockerfile_requirements -t eaglelanding_requirements:latest ../
+docker build -f ./Dockerfile_requirements -t deep-glide/requirements:latest ../
 

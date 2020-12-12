@@ -1,5 +1,5 @@
 # For more information, please refer to https://aka.ms/vscode-docker-python
-FROM eaglelanding_requirements:latest
+FROM deep-glide/requirements:latest
 #FROM debian:buster-slim
 
 
@@ -18,7 +18,7 @@ ENV PYTHONUNBUFFERED=1
 WORKDIR /app
 ADD ./RL-wrapper-gym /app/RL-wrapper-gym
 ADD ./jsbgym-flex /app/jsbgym-flex
-ADD ./landing-the-eagle /app/deep-glide
+ADD ./deep-glide /app/deep-glide
 
 # requirements werden schon in eaglelanding_requirements:latest installiert
 #RUN python3 -m pip install -r ./RL-wrapper-gym/requirements.txt
