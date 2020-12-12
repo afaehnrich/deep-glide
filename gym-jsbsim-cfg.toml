@@ -13,7 +13,7 @@ title = "gym-jsbsim Configuration"
     actions = ['target_roll']
     #actions = ['noop']
     #observations = ['roll_rad', 'heading_rad','dist_travel_lat_m','dist_travel_lon_m']
-    observations = ['roll_rad', 'heading_rad','p_radps','q_radps','r_radps']
+    observations = ['roll_rad', 'heading_rad','p_radps','q_radps','r_radps','lat-geod-deg','long-gc-deg']
 
 
     [environment.initial_state]

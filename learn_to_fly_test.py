@@ -16,11 +16,10 @@ import random
 np.set_printoptions(precision=2, suppress=True)
 
 cfg = toml.load('gym-jsbsim-cfg.toml')
-env = NormalizedEnv(gym_jsbsim_simple.environment.JsbSimEnv(cfg = cfg, 
-        task_type = AFHeadingControlTask, shaping = Shaping.STANDARD))
 #env = NormalizedEnv(gym_jsbsim_simple.environment.JsbSimEnv(cfg = cfg, 
-#        task_type = FlyAlongLineTask, shaping = Shaping.STANDARD))
-#env = NormalizedEnv(gym.make("Pendulum-v0"))
+#        task_type = AFHeadingControlTask, shaping = Shaping.STANDARD))
+env = NormalizedEnv(gym_jsbsim_simple.environment.JsbSimEnv(cfg = cfg, 
+        task_type = FlyAlongLineTask, shaping = Shaping.STANDARD))
 device = torch.device("cpu")
 #device = torch.device("cuda")
 agent = DDPGagent(env, device)
@@ -28,7 +27,11 @@ noise = OUNoise(env.action_space)
 batch_size = 128
 rewards = []
 avg_rewards = []
-plt.plot(0,0,'.')
+p1 = plt.subplot(2,1,1)
+p2 = plt.subplot(2,1,2)
+p1.plot(0,0,'.')
+#p2.xlabel('Episode')
+#p2.ylabel('Reward')
 plt.ion()
 plt.show()   
 plt.pause(0.001)        
@@ -66,18 +69,22 @@ for episode in range(0,150,1):
             sys.stdout.write("episode: {}, reward: {}, average _reward: {:.2f} \n".
                     format(episode, np.round(episode_reward, decimals=2), 
                     np.mean(rewards[-10:])))
-            plt.clf()
-            plt.plot(routex,routey,'.')
+            p1.clear()
+            p1.plot(routex,routey,'.')
             plt.show()
             plt.pause(0.001)        
             break
-
     rewards.append(episode_reward)
     avg_rewards.append(np.mean(rewards[-10:]))
+    p2.clear()
+    p2.plot(rewards)
+    p2.plot(avg_rewards)
 
-plt.plot(rewards)
-plt.plot(avg_rewards)
-plt.plot()
-plt.xlabel('Episode')
-plt.ylabel('Reward')
+plt.ioff()
+#plt.clf()
+#plt.plot(rewards)
+#plt.plot(avg_rewards)
+#plt.plot()
+#plt.xlabel('Episode')
+#plt.ylabel('Reward')
 plt.show()
