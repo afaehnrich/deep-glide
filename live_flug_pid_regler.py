@@ -5,10 +5,10 @@ import numpy as np
 from mpl_toolkits.mplot3d import axes3d
 import matplotlib.pyplot as plt
 from matplotlib import cm
-import gym_jsbsim_simple
-import gym_jsbsim_simple.properties as prp
-from gym_jsbsim_simple.environment import JsbSimEnv
-from gym_jsbsim_simple.tasks import Shaping, MyFlightTask
+import jsbgym_flex
+import jsbgym_flex.properties as prp
+from jsbgym_flex.environment import JsbSimEnv
+from jsbgym_flex.tasks import Shaping, MyFlightTask
 import pathlib
 import random
 import math
@@ -63,6 +63,6 @@ def simulate(steps, render = False):
         env.step(np.array(action))
     return
 
-env = gym_jsbsim_simple.environment.JsbSimEnv(cfg = cfg, task_type = MyFlightTask, shaping = Shaping.STANDARD)
+env = jsbgym_flex.environment.JsbSimEnv(cfg = cfg, task_type = MyFlightTask, shaping = Shaping.STANDARD)
 render = not (cfg.get('visualiser') or {}).get('enable') == False
 simulate(10000, render)

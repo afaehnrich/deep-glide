@@ -6,10 +6,10 @@ from RL_wrapper_gym.DDPG import DDPGagent
 from RL_wrapper_gym.utils import *
 import torch
 import toml
-import gym_jsbsim_simple
-import gym_jsbsim_simple.properties as prp
-from gym_jsbsim_simple.environment import JsbSimEnv
-from gym_jsbsim_simple.tasks import *
+import jsbgym_flex
+import jsbgym_flex.properties as prp
+from jsbgym_flex.environment import JsbSimEnv
+from jsbgym_flex.tasks import *
 import random
 
 np.set_printoptions(precision=2, suppress=True)
@@ -17,9 +17,9 @@ enable_fgfs = False
 
 cfg = toml.load('gym-jsbsim-cfg.toml')
 
-env = NormalizedEnv(gym_jsbsim_simple.environment.JsbSimEnv(cfg = cfg, 
+env = NormalizedEnv(jsbgym_flex.environment.JsbSimEnv(cfg = cfg, 
         task_type = AFHeadingControlTask, shaping = Shaping.STANDARD))
-#env = NormalizedEnv(gym_jsbsim_simple.environment.JsbSimEnv(cfg = cfg, 
+#env = NormalizedEnv(jsbgym_flex.environment.JsbSimEnv(cfg = cfg, 
 #        task_type = FlyAlongLineTask, shaping = Shaping.STANDARD))
 if torch.cuda.is_available():
      device = torch.device("cuda")

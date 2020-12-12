@@ -17,23 +17,23 @@ ENV PYTHONUNBUFFERED=1
 #RUN pip --version
 WORKDIR /app
 ADD ./RL-wrapper-gym /app/RL-wrapper-gym
-ADD ./gym-jsbsim-simple /app/gym-jsbsim-simple
-ADD ./landing-the-eagle /app/landing-the-eagle
+ADD ./jsbgym-flex /app/jsbgym-flex
+ADD ./landing-the-eagle /app/deep-glide
 
 # requirements werden schon in eaglelanding_requirements:latest installiert
 #RUN python3 -m pip install -r ./RL-wrapper-gym/requirements.txt
-#RUN python3 -m pip install -r ./gym-jsbsim-simple/requirements.txt
-#RUN python3 -m pip install -r ./landing-the-eagle/requirements.txt
+#RUN python3 -m pip install -r ./jsbgym-flex/requirements.txt
+#RUN python3 -m pip install -r ./deep-glide/requirements.txt
 
 
 RUN python3 -m pip install -e ./RL-wrapper-gym
-RUN python3 -m pip install -e ./gym-jsbsim-simple
+RUN python3 -m pip install -e ./jsbgym-flex
 
 # Switching to a non-root user, please refer to https://aka.ms/vscode-docker-python-user-rights
 RUN useradd appuser && chown -R appuser /app
 USER appuser
 
 # During debugging, this entry point will be overridden. For more information, please refer to https://aka.ms/vscode-docker-python-debug
-WORKDIR /app/landing-the-eagle
+WORKDIR /app/deep-glide
 
 CMD ["python3", "learn_to_fly_test.py"]
