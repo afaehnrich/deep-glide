@@ -137,84 +137,42 @@ class Simplesim:
         x = [d[0] for d in self.drag_coeffs]
         y = [d[1] for d in self.drag_coeffs]
         return np.interp(aoa, x, y)
-        
+
+def speedtest():
+    print('100x100s sim steps: start')
+    t1=time.time()
+    for _ in range(0,100,1):
+        for _ in range(0,int(100*1/time_step),1):
+            state = sim.sim_step(control, time_step, sim_time)
+    t2=time.time()
+    dt =t2-t1
+    print('100x100s sim steps: {:0.2f}s'.format(dt))
+
    
 np.set_printoptions(precision=2, suppress=True)
 
 aoa = 0.1
-roll = 0.7
-control = np.array([
-            aoa, 
-            roll])
-fgfs_udp = FGFS_UDP_Native()
-fdm = Native_FDM_Data()
-fdm = fgfs_udp.fdm_init(fdm)
+roll = 0.1
+control = np.array([aoa, roll])
+fgfs = FGFS_UDP_Native()
 sim = Simplesim()
-print('state: {} lat={:0.6f} lon={:0.6f}'.format(sim.state, fdm.latitude, fdm.longitude))
-udp = UDP_transceiver(receiver=False)
 time_step = 1/10
-state = sim.sim_step(control, time_step, 0)
-print('state: {} lat={:0.6f} lon={:0.6f}'.format(state, fdm.latitude, fdm.longitude))
-sim_time = 0
-old_time = sim_time
-print('100x100s sim steps: start')
-t1=time.time()
-for _ in range(0,100,1):
-    for _ in range(0,int(100*1/time_step),1):
-        #time_now = time.time()
-        #old_state = state
-        state = sim.sim_step(control, time_step, sim_time)
-        #dx = state[0] - old_state[0]
-        #dy = state[1] - old_state[1]
-        #fdm.latitude, fdm.longitude = geocoord_offset_rad_m(
-        #    fdm.latitude, fdm.longitude, dx, dy)
-        #fdm.altitude = state[2]
-    #          self.state = np.array([x, y, z, vert_fp, heading, v])
-        #fdm.psi = state[4]       
-
-        #fdm.theta = control[0]
-        #fdm.phi = control[1]
-
-        #fdm.eng_state[0]=0
-        #fdm.eng_state[1]=0
-        #fdm.eng_state[2]=0
-        #fdm.eng_state[3]=0
-        #sim_time += time_step
-        #fdm.cur_time = int(sim_time)
-        #sleep_t = time_now + time_step - time.time()
-        #if sleep_t <0: sleep_t = 0
-t2=time.time()
-dt =t2-t1
-print('100x100s sim steps: {:0.2f}s'.format(dt))
-exit()
-
+old_time = sim_time = fgfs.data.cur_time
+state = sim.sim_step(control, time_step, sim_time)
 while True:
     time_now = time.time()
     old_state = state
     state = sim.sim_step(control, time_step, sim_time)
-    dx = state[0] - old_state[0]
-    dy = state[1] - old_state[1]
-    fdm.latitude, fdm.longitude = geocoord_offset_rad_m(
-        fdm.latitude, fdm.longitude, dx, dy)
-    fdm.altitude = state[2]
-#          self.state = np.array([x, y, z, vert_fp, heading, v])
-    fdm.psi = state[4]       
-
-    fdm.theta = control[0]
-    fdm.phi = control[1]
-
-    fdm.eng_state[0]=0
-    fdm.eng_state[1]=0
-    fdm.eng_state[2]=0
-    fdm.eng_state[3]=0
+    (x, y, z, vert_fp, heading, v) = state
+    (aoa, roll) = control
+    dx = x - old_state[0]
+    dy = y - old_state[1]
+    fgfs.fdm_update_minimal(x,y,z,roll, vert_fp+aoa,heading, int(sim_time))
     sim_time += time_step
-    fdm.cur_time = int(sim_time)
-    udp.send(fdm)
     if sim_time-old_time > 1:
-        #udp.send(fdm)
         old_time = sim_time
-        print('state: {} dx={:0.3f} dy={:0.3f} lat={:0.6f} lon={:0.6f}'.format(state, dx, dy, fdm.latitude, fdm.longitude))
+        print('state: {} dx={:0.3f} dy={:0.3f} lat={:0.6f} lon={:0.6f}'.format(state, dx, dy, fgfs.data.latitude, fgfs.data.longitude))
     sleep_t = time_now + time_step - time.time()
     if sleep_t <0: sleep_t = 0
     time.sleep(sleep_t)
-    if fdm.altitude <5: exit()
+    if z <5: exit()

@@ -83,6 +83,70 @@ class Native_FDM_Data(BigEndianStructure):
     ('spoilers', c_float)
 ]
 
+class FGFS_UDP_Native:
+    def __init__(self, ip="127.0.0.1", port=5550):
+        self.ip = ip
+        self.port = port
+        self.sock = socket.socket(socket.AF_INET, # Internet
+                                socket.SOCK_DGRAM) # UDP
+        self.data = Native_FDM_Data.from_buffer_copy(np.zeros(sizeof(Native_FDM_Data)))
+        self.__fdm_init()
+        self.lat_start = self.data.latitude
+        self.lon_start = self.data.longitude
+
+    def init_lon_lat(self, lon_rad, lat_rad):
+        self.data.longitude = lon_rad
+        self.lon_start = lon_rad
+        self.data.latitude = lat_rad
+        self.lat_start = lat_rad
+        
+    def __fdm_init(self):
+        #das muss immer gesetzt werden
+        self.data.version = 24
+        self.data.padding = 0        
+        #Position
+        self.init_lon_lat(0.23396058337838, 0.91664706277376)
+        self.data.altitude = 500.00001
+        self.data.agl = self.data.altitude - 34 # above ground level
+        #Luftfahrzeug
+        self.data.num_engines = 1
+        self.data.num_tanks = 2
+        self.data.num_wheels = 3
+        #Umgebung
+        self.data.cur_time = 0
+        self.data.warp = 0
+        self.data.visibility = 25000.0
+
+    def udp_close(self):
+        self.sock.shutdown(socket.SHUT_RDWR)
+        self.sock.close()
+    
+    def send_udp(self):
+        self.sock.sendto(bytes(self.data), (self.ip, self.port))
+
+    def fdm_update_minimal(self, x, y, z, phi, theta, psi, cur_time, send_udp=True):
+        self.data.longitude, self.data.latitude = geocoord_offset_rad_m(
+                        self.lon_start, self.lat_start, x, y)
+        self. altitude = z
+        self.data.phi = phi
+        self.data.theta = theta
+        self.data.psi = psi
+        self.cur_time = cur_time
+        if send_udp: self.send_udp()
+    
+
+def geocoord_offset_rad_m(lat_rad, lon_rad, d_north_m, d_east_m):
+    #Earth’s radius, sphere, meters
+    R=6378137
+    #Coordinate offsets in radians
+    lat_rad += d_north_m/R
+    cos_lat = np.cos(lat_rad)
+    if cos_lat == 0: cos_lat = 0.0000001
+    lon_rad += d_east_m/(R*np.cos(lat_rad))
+    return lat_rad, lon_rad
+
+
+'''
 class UDP_transceiver:
 ### Nur für den Fall, dass mans mal braucht...
     def __init__(self, ip="127.0.0.1", port=5550, receiver=True):
@@ -110,64 +174,4 @@ class UDP_transceiver:
             data, _ = sock.recvfrom(1024)
             fdm = Native_FDM_Data.from_buffer_copy(data)
         return fdm
-
-
-class FGFS_UDP_Native:
-    def __init__(self, ip="127.0.0.1", port=5550, receiver=True):
-        self.ip = ip
-        self.port = port
-        self.rec = receiver
-        self.sock = socket.socket(socket.AF_INET, # Internet
-                                socket.SOCK_DGRAM) # UDP
-        self.fdmdata = Native_FDM_Data.from_buffer_copy(np.zeros(sizeof(Native_FDM_Data)))
-        self.fdmdata = self.fdm_init(self.fdmdata)
-        self.lat_start = self.fdmdata.latitude
-        self.lon_start = self.fdmdata.longitude
-
-    def init_lon_lat(self, lon_rad, lat_rad):
-        self.fdmdata.longitude = lon_rad
-        self.lon_start = lon_rad
-        self.fdmdata.latitude = lat_rad
-        self.lat_start = lat_rad
-        
-    def fdm_init(self, fdm):
-        fdm.version = 24
-        fdm.padding = 0
-        self.init_lon_lat(0.23396058337838, 0.91664706277376)
-        fdm.altitude = 500.00001
-        fdm.agl = fdm.altitude - 34 # above ground level
-        fdm.num_engines = 1
-        fdm.num_tanks = 2
-        fdm.num_wheels = 3
-        fdm.cur_time = 1234567890
-        fdm.warp = 0
-        fdm.visibility = 25000.0
-        return fdm
-
-    def udp_close(self):
-        self.sock.shutdown(socket.SHUT_RDWR)
-        self.sock.close()
-    
-    def udp_send(self):
-        self.sock.sendto(bytes(self.fdmdata), (self.ip, self.port))
-
-    def fdm_update_minimal(self, x, y, z, phi, theta, psi, send_udp=True):
-        self.fdmdata.longitude, self.fdmdata.latitude = geocoord_offset_rad_m(
-                        self.lon_start, self.lat_start, x, y)
-        self. altitude = z
-        self.fdmdata.phi = phi
-        self.fdmdata.theta = theta
-        self.fdmdata.psi = psi
-        if send_udp: self.upd_send()
-    
-
-def geocoord_offset_rad_m(lon_rad, lat_rad, d_east_m, d_north_m):
-    #Earth’s radius, sphere, meters
-    R=6378137
-    #Coordinate offsets in radians
-    lat_rad += d_north_m/R
-    cos_lat = np.cos(lat_rad)
-    if cos_lat == 0: cos_lat = 0.0000001
-    lon_rad += d_east_m/(R*np.cos(lat_rad))
-    return lat_rad, lon_rad
-    
+'''
