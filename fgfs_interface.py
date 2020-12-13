@@ -1,7 +1,6 @@
 import socket
 import struct
-from ctypes import c_float, c_double, c_int32, c_uint32, BigEndianStructure,\
-                    sizeof
+from ctypes import c_float, c_double, c_int32, c_uint32, BigEndianStructure, sizeof
 import numpy as np
 
 FG_MAX_ENGINES = 4
@@ -9,6 +8,7 @@ FG_MAX_WHEELS = 3
 FG_MAX_TANKS = 4
 
 class Native_FDM_Data(BigEndianStructure):
+    #see: https://github.com/FlightGear/flightgear/blob/next/src/Network/net_fdm.hxx
     _fields_ = [
     ('version', c_uint32),		    # increment when data values change
     ('padding', c_uint32),		    # padding
