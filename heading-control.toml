@@ -9,12 +9,19 @@ title = "gym-jsbsim Configuration"
     observation_stepwidth = 1 # Step width of observations delivered to openAI gym in seconds
     aircraft = "cessna172P"
     path_jsbsim = "jsbsim_models" #an System anpassen. 
-    # Im Unterordner "aircraft" sollten die Definitionen der FLugzeuge zu finden sein.
+    # Im Unterordner "aircraft" sollten die Definitionen der Flugzeuge zu finden sein.
+    pids = ['roll', 'pitch']
+    task = 'HeadingControl'
     actions = ['target_roll']
+    actor = 'lin_4x128'
+    critic = 'lin_4x128'
     #actions = ['noop']
     #observations = ['roll_rad', 'heading_rad','dist_travel_lat_m','dist_travel_lon_m']
-    observations = ['roll_rad', 'heading_rad','p_radps','q_radps','r_radps','lat-geod-deg','long-gc-deg']
+    observations = ['roll_rad', 'heading_rad','p_radps','q_radps','r_radps','lat_geod_deg','lng_geoc_deg']
 
+    [environment.task_init]
+        head_target = 2.2
+    
 
     [environment.initial_state]
         initial_altitude_ft = 5000
@@ -33,7 +40,7 @@ title = "gym-jsbsim Configuration"
         gear_all_cmd = 0.0 #l anding gear raised
         target_roll = 0.0
         target_pitch = 0
-        target_heading = 1.5
+        target_heading = 0
         noop = 0.0
 
     [environment.init_sequence]
@@ -48,18 +55,18 @@ title = "gym-jsbsim Configuration"
 
 [pid]
 
-#    [pid.heading]
-#        type = 'pid_angle'
-#        input = 'heading_rad'
-#        output = 'noop' # 'target_roll'
-#        target = 'target_heading'
-#        angle_max = 6.28318530718 # 2 * math.pi
-#        out_min = -0.75
-#        out_max = 0.75
-#        p = 0.7 #0.5
-#        i = 0.0 #0.0001
-#        d = 0.0
-#        anti_windup = 2
+    [pid.heading]
+       type = 'pid_angle'
+        input = 'heading_rad'
+        output = 'target_roll'
+        target = 'target_heading'
+        angle_max = 6.28318530718 # 2 * math.pi
+        out_min = -0.75
+        out_max = 0.75
+        p = 0.7 #0.5
+        i = 0.0 #0.0001
+        d = 0.0
+        anti_windup = 2
 
     [pid.roll]
         type = 'pid_angle'
@@ -92,7 +99,7 @@ title = "gym-jsbsim Configuration"
     # enable  true: Visualisierung eingeschaltet, Simulation in "Realgeschwindigkeit"
     #       false: Visualisierung abgeschaltet, Simulation ohne Delay.
     #enable = true
-    enable = true
+    enable = false
 
     [visualiser.flightgear]
         timefactor = 10  # sim speed relative to realtime, higher is faster
@@ -258,7 +265,7 @@ title = "gym-jsbsim Configuration"
         description = 'right aileron position, normalised'
         min = -1
         max = 1
-    [properties.levator]
+    [properties.elevator]
         name = 'fcs/elevator-pos-norm'
         description = 'elevator position, normalised'
         min = -1
