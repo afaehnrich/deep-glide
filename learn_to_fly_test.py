@@ -19,7 +19,7 @@ max__travel_dist = 0.15
 cfg = toml.load('heading-control.toml')
 #cfg = toml.load('fly-along-line.toml')
 
-env = NormalizedEnv(jsbgym_flex.environment.JsbSimEnv(cfg = cfg, shaping = Shaping.STANDARD))
+env = NormalizedEnvMulti(jsbgym_flex.environment.JsbSimEnv(cfg = cfg, shaping = Shaping.STANDARD))
 #env = NormalizedEnv(jsbgym_flex.environment.JsbSimEnv(cfg = cfg, 
 #        task_type = FlyAlongLineTask, shaping = Shaping.STANDARD))
 if torch.cuda.is_available():
@@ -27,10 +27,11 @@ if torch.cuda.is_available():
 else:
     device = torch.device("cpu")
 print('Torch Device: {}'.format(device))
-actor = cfg.get('environment').get('actor')
-critic = cfg.get('environment').get('critic')
-agent = DDPGagent(env, device, actor, critic)
-noise = OUNoise(env.action_space)
+agents = []
+noises = []
+for task in env.tasks:
+    agents.append(DDPGagent(task.observation_space, task.action_space, device, task.actor, task.critic))
+    noises.append(OUNoise(task.action_space))
 batch_size = 128
 rewards = []
 avg_rewards = []
@@ -46,9 +47,9 @@ plt.show()
 plt.pause(0.001)        
 t_head=0
 for episode in range(0,150,1):
-    state = env.reset()
-    noise.reset()
-    episode_reward = 0
+    state_n = env.reset()
+    for noise in noises: noise.reset()
+    episode_reward = np.array([0.])
     env.set_property('heading_deg', random.randrange(0,360,1))
     routex=[]
     routey=[]
@@ -58,20 +59,23 @@ for episode in range(0,150,1):
             # Am Anfang actions wiederholen, um 
             # trotz langsamer Reaktion des Flugzeugs zu lernen
             # dann actions bei jedem Schritt
-            action = agent.get_action(state)
-            action = noise.get_action(action, step)
-        new_state, reward, done, _ = env.step(action) 
-        agent.memory.push(state, action, reward, new_state, done)
+            action_n = [agent.get_action(state) for agent, state in zip(agents, state_n)]
+            action_n = [noise.get_action(action, step) for action in action_n]
+        new_state_n, reward_n, done_n, _ = env.step(action_n) 
+        for agent, state, action, reward, new_state, done \
+                in zip(agents, state_n, action_n, reward_n, new_state_n, done_n):
+            agent.memory.push(state, action, reward, new_state, done)
         routex.append(env.get_property('lat_geod_deg'))
         routey.append(env.get_property('lng_geoc_deg'))
         if len(agent.memory) > batch_size:
-            agent.update(batch_size)        
+            for agent in agents:
+                agent.update(batch_size)        
         if (episode+1) % 150 == 0 and enable_fgfs:
             env.render()
-            print('action={} state={} reward={}'.format(action, new_state, reward),end='\r')
-        state = new_state
-        episode_reward += reward
-        if done:
+            print('action={} state={} reward={}'.format(action_n, new_state_n, reward_n),end='\r')
+        state_n = new_state_n
+        episode_reward += reward_n
+        if done_n[0]:
             if episode % 10 == 0: print()
             sys.stdout.write("episode: {}, reward: {}, average _reward: {:.2f} \n".
                     format(episode, np.round(episode_reward, decimals=2), 

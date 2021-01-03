@@ -16,7 +16,7 @@ title = "gym-jsbsim Configuration"
     critic = 'lin_4x128'
     #actions = ['noop']
     #observations = ['roll_rad', 'heading_rad','dist_travel_lat_m','dist_travel_lon_m']
-    observations = ['roll_rad', 'heading_rad','p_radps','q_radps','r_radps','lat_geod_deg','lng_geoc_deg']
+    states = ['roll_rad', 'heading_rad','p_radps','q_radps','r_radps','lat_geod_deg','lng_geoc_deg']
     task = 'FlyAlongLine'
     
     [environment.task_init]
