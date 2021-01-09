@@ -1,3 +1,3 @@
 #!/bin/sh
-docker run --runtime=nvidia eaglelanding
+docker run --runtime=nvidia deep-glide
 
