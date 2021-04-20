@@ -2,6 +2,10 @@
 
 title = "gym-jsbsim Configuration"
 
+[gym]
+    max_steps = 300
+    max_episodes = -1
+
 [environment]
     #assertion: simulation_freq >= controller_freq >= observation_freq
     simulation_stepwidth = 0.02  # Step width of JSBSim in seconds
@@ -9,18 +13,16 @@ title = "gym-jsbsim Configuration"
     observation_stepwidth = 1 # Step width of observations delivered to openAI gym in seconds
     aircraft = "cessna172P"
     path_jsbsim = "jsbsim_models" #an System anpassen. 
-    # Im Unterordner "aircraft" sollten die Definitionen der FLugzeuge zu finden sein.
-    actions = ['target_roll']
-    #actions = ['noop']
-    #observations = ['roll_rad', 'heading_rad','dist_travel_lat_m','dist_travel_lon_m']
-    observations = ['roll_rad', 'heading_rad','p_radps','q_radps','r_radps','lat-geod-deg','long-gc-deg']
-
+    # Im Unterordner "aircraft" sollten die Definitionen der Flugzeuge zu finden sein.
+    pids = ['roll', 'pitch']
+    plot_perstep =['pos_dx_m', 'pos_dy_m','pid_target_roll', 'pid_target_heading', 'heading_rad']
+    plot_perepisode =['initial_heading_rad']
 
     [environment.initial_state]
         initial_altitude_ft = 5000
         initial_terrain_altitude_ft = 0.00000001 # 0.0 erzeugt wohl NaNs
         initial_longitude_geoc_deg = -2.3273
-        initial_latitude_geod_deg = 51.3781  # corresponds to UoBath
+        initial_latitude_geod_deg = 51.3781
         initial_u_fps = 120 #cruise speed Chessna = 120 ft/s
         initial_v_fps = 0
         initial_w_fps = 0
@@ -28,13 +30,16 @@ title = "gym-jsbsim Configuration"
         initial_q_radps = 0
         initial_r_radps = 0
         initial_roc_fpm = 0
-        initial_heading_deg = 180
+        #initial_heading_deg = 180
+        initial_heading_rad = 0.5
         gear = 0.0 # landing gear raised
         gear_all_cmd = 0.0 #l anding gear raised
-        target_roll = 0.0
-        target_pitch = 0
-        target_heading = 1.5
+        pid_target_roll = 0.0
+        pid_target_pitch = 0
+        pid_target_heading = 2
         noop = 0.0
+        target_lat_geod_deg = 0
+        target_lng_geoc_deg = 0
 
     [environment.init_sequence]
         # for engine-on flight:
@@ -46,26 +51,59 @@ title = "gym-jsbsim Configuration"
         #throttle_cmd = 0
         #mixture_cmd = 0
 
+[tasks]
+  
+    [tasks.heading]
+        name = 'HeadingControl'
+        actions = ['pid_target_roll']
+        #actions = ['noop']
+        actor = 'lin_4x128'
+        critic = 'lin_4x128'
+        #actions = ['noop']
+        #observations = ['roll_rad', 'heading_rad','dist_travel_lat_m','dist_travel_lon_m']
+        #states = ['roll_rad', 'heading_rad','dist_travel_lat_m','dist_travel_lon_m']
+        states= ['roll_rad', 'heading_rad','p_radps','q_radps','r_radps','lat_geod_deg','lng_geoc_deg']
+
+        [tasks.heading.init]
+            head_target = 2.2
+
+    #[tasks.findtarget]
+    #    name = 'FindTarget'
+    #    actions = ['target_heading']
+    #    actor = 'lin_4x128'
+    #    critic = 'lin_4x128'
+    #    states = ['roll_rad', 'heading_rad','p_radps','q_radps','r_radps','lat_geod_deg','lng_geoc_deg', 'target_lat_geod_deg', 'target_lng_geoc_deg', 'target_heading']
+
+    #    [tasks.findtarget.init]
+    #        target_lng = -2.4
+    #        target_lat = 51.45 
+    #        target_head = 2.2
+    #        max_dist_target = 500 # in m
+    #        max_steps = 200
+
+            
+     
+
 [pid]
 
-#    [pid.heading]
-#        type = 'pid_angle'
-#        input = 'heading_rad'
-#        output = 'noop' # 'target_roll'
-#        target = 'target_heading'
-#        angle_max = 6.28318530718 # 2 * math.pi
-#        out_min = -0.75
-#        out_max = 0.75
-#        p = 0.7 #0.5
-#        i = 0.0 #0.0001
-#        d = 0.0
-#        anti_windup = 2
+    [pid.heading]
+       type = 'pid_angle'
+        input = 'heading_rad'
+        output = 'pid_target_roll'
+        target = 'pid_target_heading'
+        angle_max = 6.28318530718 # 2 * math.pi
+        out_min = -0.75
+        out_max = 0.75
+        p = 0.7 #0.5
+        i = 0.0 #0.0001
+        d = 0.0
+        anti_windup = 2
 
     [pid.roll]
         type = 'pid_angle'
         input = 'roll_rad'
         output = 'aileron_cmd'
-        target = 'target_roll'
+        target = 'pid_target_roll'
         angle_max = 6.28318530718 # 2 * math.pi
         out_min = -1.0
         out_max = 1.0
@@ -78,7 +116,7 @@ title = "gym-jsbsim Configuration"
         type ='pid_angle'
         input = 'pitch_rad'
         output = 'elevator_cmd'
-        target = 'target_pitch'
+        target = 'pid_target_pitch'
         angle_max = 6.28318530718 # 2 * math.pi
         out_min = -1.0
         out_max = 1.0
@@ -92,7 +130,7 @@ title = "gym-jsbsim Configuration"
     # enable  true: Visualisierung eingeschaltet, Simulation in "Realgeschwindigkeit"
     #       false: Visualisierung abgeschaltet, Simulation ohne Delay.
     #enable = true
-    enable = true
+    enable = false
 
     [visualiser.flightgear]
         timefactor = 10  # sim speed relative to realtime, higher is faster
@@ -118,20 +156,35 @@ title = "gym-jsbsim Configuration"
 # z.B. als Input für PID-Regler. 
 
 #custom properties
-    [properties.target_roll]
-        name = 'custom/target-roll'
+
+
+    [properties.target_lat_geod_deg]
+        name = 'custom/target-lat-geod-deg'
+        description = 'target lateral position in deg'
+        min = -90
+        max = 90
+
+    [properties.target_lng_geoc_deg]
+        name = 'custom/target-lng-geoc-deg'
+        description = 'target longitudinal position in deg'
+        min = -180
+        max = 180
+
+
+    [properties.pid_target_roll]
+        name = 'custom/pid-target-roll'
         description = 'target for PID roll'
         min = -0.7 #-1.57079632679 #-0.5 * math.pi
         max = 0.7  #1.57079632679 #0.5 * math.pi
 
-    [properties.target_pitch]
-        name = 'custom/target-pitch'
+    [properties.pid_target_pitch]
+        name = 'custom/pid-target-pitch'
         description = 'target for PID pitch'
         min = -1.57079632679 #-0.5 * math.pi
         max = 1.57079632679 #0.5 * math.pi
 
-    [properties.target_heading]
-        name = 'custom/target-heading'
+    [properties.pid_target_heading]
+        name = 'custom/pid-target-heading'
         description = 'target for PID heading'
         min = 0.0
         max = 6.28318530718 #2.0 * math.pi
@@ -141,6 +194,37 @@ title = "gym-jsbsim Configuration"
         description = 'action to do nothing'
         min = 0.0
         max = 1.0
+
+    
+    [properties.pos_dx_m]
+        name = 'custom/pos-dx-m'
+        description = 'X-Position relative to start in m'
+        min = -20000
+        max = 20000
+
+    [properties.pos_dy_m]
+        name = 'custom/pos-dy-m'
+        description = 'Y-Position relative to start in m'
+        min = -20000
+        max = 20000
+    
+    [properties.target_dx_m]
+        name = 'custom/target-dx-m'
+        description = 'X-Position of target relative to start in m'
+        min = -20000
+        max = 20000
+
+    [properties.target_dy_m]
+        name = 'custom/target-dy-m'
+        description = 'Y-Position of target relative to start in m'
+        min = -20000
+        max = 20000
+
+    [properties.target_distance]
+        name = 'custom/target-distance-m'
+        description = 'Distance to target in m'
+        min = -30000
+        max = 30000
 
 # position and attitude
     [properties.altitude_sl_ft]
@@ -258,7 +342,7 @@ title = "gym-jsbsim Configuration"
         description = 'right aileron position, normalised'
         min = -1
         max = 1
-    [properties.levator]
+    [properties.elevator]
         name = 'fcs/elevator-pos-norm'
         description = 'elevator position, normalised'
         min = -1
@@ -377,3 +461,7 @@ title = "gym-jsbsim Configuration"
     [properties.initial_heading_deg]
         name = 'ic/psi-true-deg'
         description = 'initial (true) heading [deg]'
+    [properties.initial_heading_rad]
+        name = 'ic/psi-true-rad'
+        description = 'initial (true) heading [rad]'
+        

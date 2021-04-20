@@ -4,6 +4,7 @@ from jsbgym_flex.tasks import *
 import toml
 from datetime import datetime
 import RL_wrapper_gym
+import FDM
 
 cfg = toml.load('gym-jsbsim-cfg.toml')
 
@@ -20,6 +21,12 @@ def simCycle(name, env, outer, inner):
     dt = (after-before)
     print ('Simulation {}: {}x{} steps: {}.{}s'.format(name, outer, inner, dt.seconds, dt.microseconds) )
 
+env = jsbgym_flex.environment.JsbSimEnv(cfg = cfg, task_type = AFHeadingControlTask, shaping = Shaping.STANDARD)
+name = 'JSBSIM' 
+simCycle(name, env, 1, 100)
+simCycle(name, env, 10, 100)
+#simCycle(name, env, 100, 100)
+env.close()
 env = jsbgym_flex.environment.JsbSimEnv(cfg = cfg, task_type = AFHeadingControlTask, shaping = Shaping.STANDARD)
 name = 'JSBSIM' 
 simCycle(name, env, 1, 100)
