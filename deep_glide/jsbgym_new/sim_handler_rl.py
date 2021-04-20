@@ -154,7 +154,7 @@ class JSBSimEnv_v1(JSBSimEnv_v0):
         while np.linalg.norm(self.goal_dir) ==0: 
             self.goal_dir = np.random.uniform(-1., 1., 2)
         self.goal_dir = self.goal_dir / np.linalg.norm(self.goal_dir) 
-        super().reset()
+        return super().reset()
 
     def _reward(self):
         self._checkFinalConditions()
