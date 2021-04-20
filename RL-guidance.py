@@ -10,7 +10,7 @@ import numpy as np
 from deep_glide.jsbgym_new.pid import PID_angle, PID
 from deep_glide.jsbgym_new.guidance import TrackToFix3D
 from deep_glide.jsbgym_new.sim import Sim,  SimState, TerrainClass, TerrainOcean, SimTimer
-from deep_glide.jsbgym_new.sim_handler_rl import JSBSimEnv_v0
+from deep_glide.jsbgym_new.sim_handler_rl import JSBSimEnv_v0, JSBSimEnv_v1, JSBSimEnv_v2
 from typing import Dict, List, Tuple
 from array import array
 import matplotlib.pyplot as plt
@@ -26,7 +26,7 @@ from datetime import datetime
 
 class RL_train:
 
-    simHandler: JSBSimEnv_v0     
+    simHandler: JSBSimEnv_v2   
     BATCH_SIZE = 128
  
     def init_rl_agents(self, action_props, load_models):
@@ -48,7 +48,7 @@ class RL_train:
                  goal_sample_rate, search_radius, 
                  iter_max, number_neighbors, number_neighbors_goal):
         self.st_start = st_start
-        self.simHandler = JSBSimEnv_v0()
+        self.simHandler = JSBSimEnv_v2()
         self.init_rl_agents(self.simHandler.action_props, load_models=False)
         # ein import von mayavi für das Gesamtprojekt zerstört die JSBSim-Simulation. 
         # Flugrouten werden dann nicht mehr korrekt berechnet - warum auch immer.
@@ -123,8 +123,8 @@ class RL_train:
             state = self.simHandler.reset()
             time1 = datetime.now()
             for step in range(0, max_steps):
-                pos = np.array(state[5:8])
-                goal = np.array(state[8:11])
+                pos = self.simHandler.pos[0:2]
+                goal = self.simHandler.goal[0:2]
                 dir = goal-pos
                 # ->observation, reward, done, info  
                 dir_len =  np.linalg.norm(dir)
@@ -134,11 +134,8 @@ class RL_train:
                 state = new_state
                 rewards.append(reward)            
                 if done: break            
-            # self.flightRenderer.plot_start(self.simHandler.start)
-            # self.flightRenderer.plot_goal(self.simHandler.goal, 500)
-            # self.flightRenderer.plot_path(self.simHandler.trajectory, radius=10)
             time2 = datetime.now()
-            self.simHandler.render()
+            #self.simHandler.render()
             total_reward = np.sum(rewards)
             print('Episode ', episode,': reward min={:.2f} max={:.2f}, mean={:.2f}, med={:.2f} total={:.2f}  episode_len={} time={:.1f}s'.format(np.min(rewards), 
                     np.max(rewards), np.average(rewards), np.median(rewards), total_reward, step, (time2-time1).total_seconds()))
@@ -147,7 +144,59 @@ class RL_train:
         print('Fertig')
         self.simHandler.save_rl_agents()
 
+    def height(self):       
+        logging.basicConfig(level=logging.INFO) 
+        max_steps = 300
+        max_episodes = 1000
+        energy = []
+        distance = []
+        for episode in range(0,max_episodes):
+            state = self.simHandler.reset()
+            energy.append(self.simHandler._get_energy())
+            distance.append(np.linalg.norm(self.simHandler.goal[0:2]-self.simHandler.pos[0:2]))
+            print(episode,end='\r')
+        x = energy
+        print('Energy min={:.2f} max={:.2f}, mean={:.2f}, med={:.2f} '.format(np.min(x), 
+                    np.max(x), np.average(x), np.median(x)))
+        x = distance
+        print('Distance min={:.2f} max={:.2f}, mean={:.2f}, med={:.2f} '.format(np.min(x), 
+                    np.max(x), np.average(x), np.median(x)))
+        print('Fertig')
 
+    def guidance_random(self):       
+        logging.basicConfig(level=logging.INFO) 
+        max_steps = 300
+        max_episodes = 25
+        not_final_reward=[]
+        for episode in range(0,max_episodes):
+            rewards = []
+            state = self.simHandler.reset()
+            time1 = datetime.now()
+            for step in range(0, max_steps):
+                pos = np.array(state[5:8])
+                goal = np.array(state[8:11])
+                dir = goal-pos
+                # ->observation, reward, done, info  
+                dir_len =  np.linalg.norm(dir)
+                if dir_len == 0: dir_len = 1.
+                action=self.simHandler.action_space.sample()
+                new_state, reward, done, _ = self.simHandler.step(action)
+                if not done: not_final_reward.append(reward)
+                state = new_state
+                rewards.append(reward)            
+                if done: break            
+            time2 = datetime.now()
+            total_reward = np.sum(rewards)
+            print('Episode ', episode,': reward min={:.2f} max={:.2f}, mean={:.2f}, med={:.2f} total={:.2f}  episode_len={} time={:.1f}s'.format(np.min(rewards), 
+                    np.max(rewards), np.average(rewards), np.median(rewards), total_reward, step, (time2-time1).total_seconds()))
+            self.plot_reward(episode, total_reward/max_steps)
+            #GUI().process_events()
+        x = not_final_reward
+        print('Reward not final min={:.5f} max={:.5f}, mean={:.5f}, med={:.5f} total per episode={:.5f}'.format(np.min(x), 
+                    np.max(x), np.average(x), np.median(x), np.sum(x)/max_episodes))
+        print('Fertig')
+
+        
 
 initial_props={
         'ic/h-sl-ft': 0,#3600./0.3048,
@@ -174,8 +223,10 @@ def main():
     
     rl_trainer = RL_train(state_start, x_goal, step_len = 3000, goal_sample_rate = 0.10, search_radius = 1000, 
                         iter_max = 500, number_neighbors = 10, number_neighbors_goal = 50)
-    #rl_trainer.guidance_perfect() # Funktioniert nicht mit normalisierten States!
-    rl_trainer.guidance()
+    # rl_trainer.guidance_perfect() # Funktioniert nicht mit normalisierten States!
+    # rl_trainer.height()
+    rl_trainer.guidance_random()
+    # rl_trainer.guidance()
 
 if __name__ == '__main__':
     main()

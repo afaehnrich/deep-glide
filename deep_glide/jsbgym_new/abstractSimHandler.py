@@ -91,19 +91,7 @@ class AbstractJSBSimEnv(gym.Env, ABC):
     def _update(self, sim:Sim ):
         self.pos = sim.pos + self.pos_offset
         self.speed = sim.get_speed_earth()
-
-    def _reset_start_goal(self, start_height):
-        self.start[0] = np.random.uniform(0, self.x_range[1]- self.x_range[0]) + self.x_range[0]
-        self.start[1] = np.random.uniform(0, self.y_range[1]- self.y_range[0]) + self.y_range[0]
-        self.start[2] = start_height
-        self.goal[0] = np.random.uniform(0, self.x_range[1]- self.x_range[0]) + self.x_range[0]
-        self.goal[1] = np.random.uniform(0, self.y_range[1]- self.y_range[0]) + self.y_range[0]
-        self.goal[2] = np.random.uniform(0, self.z_range_goal[1]- self.z_range_goal[0]) + self.z_range_goal[0] \
-                                        + self.terrain.altitude(self.goal[0], self.goal[1])   
-        self.pos_offset = self.start.copy()
-        self.pos_offset[2] = 0
-        self.trajectory=[]     
-    
+   
     def step(self, action)->Tuple[object, float, bool, dict]: # ->observation, reward, done, info        
         while True:
             self.sim.run()
@@ -188,8 +176,8 @@ class AbstractJSBSimEnv(gym.Env, ABC):
         #logging.debug("load: ",self.jsbSim.pos[2], state.position[2], state.props['ic/h-sl-ft']*0.3048, self.jsbSim['position/h-sl-ft']*0.3048)
         
     def _get_energy(self):
-        speed_fps = np.linalg.norm(self.sim.get_speed_earth())
+        speed_fps = np.linalg.norm(self.speed)
         e_kin = 1/2 * self.m_kg * speed_fps**2
-        h_ft = self.sim['position/h-sl-ft']    
+        h_ft = self.pos[2]    
         e_pot = self.m_kg * self.g_fps2 * h_ft
         return e_pot+e_kin #in kg*ft^2/sec^2
