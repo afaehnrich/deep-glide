@@ -11,7 +11,7 @@ import jsbgym_flex.properties as prp
 from jsbgym_flex.environment import JsbSimEnv
 from jsbgym_flex.tasks import *
 import random
-from rl_experiments import *
+from rl_experiments import RL_Experiment
 from datetime import datetime
 from geopy import distance
 from runtime_measure import Runtime_Measurement
@@ -21,7 +21,6 @@ import os
 import time
 import sys
 import argparse
-from live_db import RL_Live_DB
 from collections import defaultdict
 
 
@@ -131,7 +130,6 @@ if __name__ == "__main__":
     max_episodes = data.cfg['gym']['max_episodes']
     
 
-
     timer = Runtime_Measurement()
     while data.episode < max_episodes or max_episodes <= 0:
         state_n = env.reset()
@@ -166,8 +164,8 @@ if __name__ == "__main__":
             timer.stop_sample()
             if done_n[0] or step+1 == max_steps:
                 if data.episode % 10 == 0: print()
-                sys.stdout.write("episode: {}, reward: {}, time per step={:.3f}ms per episode={:.3f}s \n".
-                        format(data.episode, np.round(episode_reward, decimals=2), 
+                sys.stdout.write("episode: {}, reward: {}, steps: {},time per step={:.3f}ms per episode={:.3f}s \n".
+                        format(data.episode, np.round(episode_reward, decimals=2), step+1,
                         timer.average()*1000, timer.total()))
                 break
         data.add_episodedata()
