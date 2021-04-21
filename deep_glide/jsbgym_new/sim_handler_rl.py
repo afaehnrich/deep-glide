@@ -164,7 +164,10 @@ class JSBSimEnv_v1(JSBSimEnv_v0):
         self.goal_dir = self.goal_dir / np.linalg.norm(self.goal_dir) 
         return super().reset()
     
+    # Rewards ohne den Final Reward bei 25 Episoden mit random actions:
     # Reward not final min=-0.00999 max=-0.00000, mean=-0.00489, med=-0.00483 total per episode=-0.40984
+    # Der reward für den fall NotFinal wird so bemessen, dass er im Schnitt etwa -0.005 pro step beträgt.
+    # Ein zu großer negativer reward im NotFinal-Fall führt zu suizifalem Verhalten.
     def _reward(self):
         self._checkFinalConditions()
         if self.terminal_condition == TerminationCondition.NotFinal:
@@ -173,10 +176,10 @@ class JSBSimEnv_v1(JSBSimEnv_v0):
             if angle == 0: return 0.
             rew = -abs(angle_between(dir_target[0:2], self.speed[0:2]))/np.math.pi / 100.       
         elif self.terminal_condition == TerminationCondition.Arrived: 
-            rew = 10. - angle_between(self.goal_dir[0:2], self.speed[0:2])/np.math.pi*5
+            rew = 10. - abs(angle_between(self.goal_dir[0:2], self.speed[0:2])/np.math.pi*5)
         else:
             dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
-            rew = -dist_target/3000. - angle_between(self.goal_dir[0:2], self.speed[0:2])/np.math.pi*5
+            rew = -dist_target/3000. - abs(angle_between(self.goal_dir[0:2], self.speed[0:2])/np.math.pi*5)
         if not np.isfinite(rew).all():
             logging.error('Infinite number detected in state. Replacing with zero')
             logging.error('State: {} reward: {}'.format(self._get_state(), rew))
@@ -192,9 +195,46 @@ class JSBSimEnv_v2(JSBSimEnv_v0):
     schnell mit möglichst wenig Energieverlust erreicht werden.
     Höhe und Anflugwinkel am Ziel spielen keine Rolle.
     '''
+    # Energy und 
     # Energy min=61089841.11 max=115960677.29, mean=88758480.71, med=88374223.58 
     # Distance min=82.33 max=11876.13, mean=5153.14, med=5060.25 
-    # D0/E0 = 88374223.58 / 5060. = 17465.2615770751
+    # Der reward für den fall NotFinal wird so bemessen, dass er im Schnitt etwa -0.005 pro step beträgt.
+    # Ein zu großer negativer reward im NotFinal-Fall führt zu suizifalem Verhalten.
+    # Bei steigender mittlerer Entfernung zum Ziel muss der NotFinal-reward vermutlich weiter reduziert werden,
+    # so dass weiterhin für random actions pro Episode ein NotFinal-reward von ca. -0.5 erzielt wird.
+ 
+    def _reward(self):
+        self._checkFinalConditions()
+        rew = 0
+        if self.terminal_condition == TerminationCondition.NotFinal:
+            dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
+            energy = self._get_energy()
+            if energy == 0:
+                rew = 0
+            else:
+                rew = - dist_target / energy * 29.10
+        elif self.terminal_condition == TerminationCondition.Arrived: 
+            rew = 10.#  - abs(angle_between(self.goal_dir[0:2], self.speed[0:2])/np.math.pi*5)
+        else:
+            dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
+            rew = -dist_target/3000.# - angle_between(self.goal_dir[0:2], self.speed[0:2])/np.math.pi*5
+        if not np.isfinite(rew).all():
+            logging.error('Infinite number detected in state. Replacing with zero')
+            logging.error('State: {} reward: {}'.format(self._get_state(), rew))
+            rew = np.nan_to_num(rew, neginf=0, posinf=0)
+        return rew  
+
+class JSBSimEnv_v3(JSBSimEnv_v1): 
+    '''
+    In diesem Env ist der Reward abhängig davon, wie nahe der Agent dem Ziel gekommen ist.
+    Im Unterschied zu v0 wird als Zwischen-Reward jedoch nicht die Abweichung Flugwinkel - Winkel zum Ziel bewertet,
+    sondern der Energieverlust im Verhältnis zur Entfernung zum Ziel.
+    Dies ist eine Vorbereitung auf den späteren Anwendungsfall - das Ziel sollte möglichst 
+    schnell mit möglichst wenig Energieverlust erreicht werden.
+    Der korrekte Anflugwinkel wird im Final reward belohnt.
+    Die Höhe spielt keine Rolle.
+    '''
+    
     
     def _reward(self):
         self._checkFinalConditions()
@@ -207,15 +247,70 @@ class JSBSimEnv_v2(JSBSimEnv_v0):
             else:
                 rew = - dist_target / energy * 29.10
         elif self.terminal_condition == TerminationCondition.Arrived: 
-            rew = 10. # - angle_between(self.goal_dir[0:2], self.speed[0:2])/np.math.pi*5
+            rew = 10. - abs(angle_between(self.goal_dir[0:2], self.speed[0:2])/np.math.pi*5)
         else:
             dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
-            rew = -dist_target/3000.# - angle_between(self.goal_dir[0:2], self.speed[0:2])/np.math.pi*5
+            rew = -dist_target/3000. - abs(angle_between(self.goal_dir[0:2], self.speed[0:2])/np.math.pi*5)
         if not np.isfinite(rew).all():
             logging.error('Infinite number detected in state. Replacing with zero')
             logging.error('State: {} reward: {}'.format(self._get_state(), rew))
             rew = np.nan_to_num(rew, neginf=0, posinf=0)
         return rew  
+
+class JSBSimEnv_v4(JSBSimEnv_v3): 
+    '''
+    Wei v3, aber mit leicht geändertem final reward
+    '''
+       
+    def _reward(self):
+        self._checkFinalConditions()
+        rew = 0
+        if self.terminal_condition == TerminationCondition.NotFinal:
+            dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
+            energy = self._get_energy()
+            if energy == 0:
+                rew = 0
+            else:
+                rew = - dist_target / energy * 29.10
+        elif self.terminal_condition == TerminationCondition.Arrived: 
+            rew = 10. - abs(angle_between(self.goal_dir[0:2], self.speed[0:2])/np.math.pi)*15.
+        else:
+            dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
+            rew = -dist_target/3000. - abs(angle_between(self.goal_dir[0:2], self.speed[0:2])/np.math.pi)*15.
+        if not np.isfinite(rew).all():
+            logging.error('Infinite number detected in state. Replacing with zero')
+            logging.error('State: {} reward: {}'.format(self._get_state(), rew))
+            rew = np.nan_to_num(rew, neginf=0, posinf=0)
+        return rew  
+
+
+class JSBSimEnv_v5(JSBSimEnv_v3): 
+    '''
+    Wei v3, aber mit leicht geändertem final reward
+    '''
+       
+    def _reward(self):
+        self._checkFinalConditions()
+        rew = 0
+        if self.terminal_condition == TerminationCondition.NotFinal:
+            dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
+            energy = self._get_energy()
+            if energy == 0:
+                rew = 0
+            else:
+                rew = - dist_target / energy * 29.10
+        elif self.terminal_condition == TerminationCondition.Arrived: 
+            rew = 10. - abs(angle_between(self.goal_dir[0:2], self.speed[0:2])/np.math.pi)*15.
+        else:
+            dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
+            rew = -dist_target/3000. - abs(angle_between(self.goal_dir[0:2], self.speed[0:2])/np.math.pi)*15.
+        if not np.isfinite(rew).all():
+            logging.error('Infinite number detected in state. Replacing with zero')
+            logging.error('State: {} reward: {}'.format(self._get_state(), rew))
+            rew = np.nan_to_num(rew, neginf=0, posinf=0)
+        return rew  
+
+
 
     # def _reward(self, terminal_condition):
     #     dist_target = np.linalg.norm(self.obs.goal[0:2]-self.obs.pos[0:2])

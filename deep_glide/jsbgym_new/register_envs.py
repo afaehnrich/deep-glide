@@ -20,4 +20,22 @@ def register_jsbsim_envs():
         max_episode_steps=999,
         reward_threshold=1000.0,
     )
+    register(
+        id='JSBSim-v3',
+        entry_point='deep_glide.jsbgym_new.sim_handler_rl:JSBSimEnv_v3',
+        max_episode_steps=999,
+        reward_threshold=1000.0,
+    )
+    register(
+        id='JSBSim-v4',
+        entry_point='deep_glide.jsbgym_new.sim_handler_rl:JSBSimEnv_v4',
+        max_episode_steps=999,
+        reward_threshold=1000.0,
+    )
+    register(
+        id='JSBSim2D-v0',
+        entry_point='deep_glide.jsbgym_new.sim_handler_2d:JSBSimEnv2D_v0',
+        max_episode_steps=999,
+        reward_threshold=1000.0,
+    )
 

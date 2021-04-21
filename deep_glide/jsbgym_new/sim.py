@@ -164,16 +164,21 @@ class TerrainClass:
         self.yrange = (-dy*self.resolution/2, dy*self.resolution/2)
         X=np.arange(self.xrange[0], self.xrange[1]+self.resolution*2, self.resolution)
         Y=np.arange(self.yrange[0], self.yrange[1]+self.resolution*2, self.resolution)
-        self.X, self.Y = np.mgrid[  self.xrange[0]:self.xrange[1]+self.resolution*2:self.resolution, 
-                                    self.yrange[0]:self.yrange[1]+self.resolution*2:self.resolution]
-        self.Z = self.data[center_pixel[0]-int(dx//2):center_pixel[0]+int(dx//2), center_pixel[1]-int(dy//2):center_pixel[1]+int(dy//2)]
+        self.X, self.Y = np.mgrid[  self.yrange[0]:self.yrange[1]+self.resolution*2:self.resolution,
+                                    self.xrange[0]:self.xrange[1]+self.resolution*2:self.resolution]
+        self.Z = self.data[ center_pixel[1]-int(dy//2):center_pixel[1]+int(dy//2), center_pixel[0]-int(dx//2):center_pixel[0]+int(dx//2)]
         
     def altitude(self, x,y):
         id_x = int(round((x - self.xrange[0]) / self.resolution))
         id_y = int(round((y - self.yrange[0]) / self.resolution))
-        if id_x >= self.Z.shape[0] or id_y >= self.Z.shape[1] or id_x < 0 or id_y < 0:
+        if id_x >= self.Z.shape[1] or id_y >= self.Z.shape[0] or id_x < 0 or id_y < 0:
             return np.math.inf
-        return self.Z[id_x, id_y]
+        return self.Z[id_y, id_x]
+
+    def map_window(self, x, y, width, height):
+        x_low = int(round((x - self.xrange[0])/self.resolution - width/2))
+        y_low = int(round((y - self.yrange[0])/self.resolution - height/2))
+        return self.Z[y_low:y_low+height, x_low: x_low+width]
 
 class TerrainOcean(TerrainClass):
     def __init__(self):

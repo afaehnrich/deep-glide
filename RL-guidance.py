@@ -10,7 +10,7 @@ import numpy as np
 from deep_glide.jsbgym_new.pid import PID_angle, PID
 from deep_glide.jsbgym_new.guidance import TrackToFix3D
 from deep_glide.jsbgym_new.sim import Sim,  SimState, TerrainClass, TerrainOcean, SimTimer
-from deep_glide.jsbgym_new.sim_handler_rl import JSBSimEnv_v0, JSBSimEnv_v1, JSBSimEnv_v2
+from deep_glide.jsbgym_new.sim_handler_rl import JSBSimEnv_v0, JSBSimEnv_v1, JSBSimEnv_v2, JSBSimEnv_v4
 from typing import Dict, List, Tuple
 from array import array
 import matplotlib.pyplot as plt
@@ -26,7 +26,7 @@ from datetime import datetime
 
 class RL_train:
 
-    simHandler: JSBSimEnv_v2   
+    simHandler = JSBSimEnv_v4()
     BATCH_SIZE = 128
  
     def init_rl_agents(self, action_props, load_models):
@@ -48,7 +48,6 @@ class RL_train:
                  goal_sample_rate, search_radius, 
                  iter_max, number_neighbors, number_neighbors_goal):
         self.st_start = st_start
-        self.simHandler = JSBSimEnv_v2()
         self.init_rl_agents(self.simHandler.action_props, load_models=False)
         # ein import von mayavi für das Gesamtprojekt zerstört die JSBSim-Simulation. 
         # Flugrouten werden dann nicht mehr korrekt berechnet - warum auch immer.
