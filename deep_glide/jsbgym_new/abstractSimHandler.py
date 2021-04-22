@@ -26,6 +26,12 @@ class AbstractJSBSimEnv(gym.Env, ABC):
     goal = np.array([0.,0.,0.])
     pos = np.array([0.,0.,0.])
     start = np.array([0.,0.,0.])
+    x_range = (-5000, 5000)
+    y_range = (-5000, 5000)
+    z_range = (2000, 4000)
+    z_range_goal = (100, 101)
+    map_start_range =( (600,3000), (600, 3000))
+
     min_distance_terrain = 100
     trajectory=[]
     stateNormalizer = Normalizer()
@@ -73,20 +79,10 @@ class AbstractJSBSimEnv(gym.Env, ABC):
     def __init__(self, initial_State: SimState, save_trajectory = False):                
         super().__init__()      
         self.sim = Sim(sim_dt = 0.02)
-        self.x_range = (-5000, 5000)
-        self.y_range = (-5000, 5000)
-        self.z_range = (2000, 4000)
-        self.z_range_goal = (100, 101)
-        self.save_trajectory = save_trajectory
-        map_offset=(200,60)      
-        self.terrain.define_map(self.x_range[1]- self.x_range[0], self.y_range[1]- self.y_range[0], (3601//2 + map_offset[0], 3601//2 + map_offset[1]))
-        self._reset_sim_state(initial_State)
+        self.save_trajectory = save_trajectory  
         self.m_kg = self.sim.sim['inertia/mass-slugs'] * 14.5939029372
         self.g_fps2 = self.sim.sim['accelerations/gravity-ft_sec2']
         self.initial_state = initial_State
-        self.start = np.array(initial_State.position)
-        self.action_space = spaces.Box(*PropertylistToBox(self.action_props))
-        self.observation_space = spaces.Box(*PropertylistToBox(self.observation_props))
 
     def _update(self, sim:Sim ):
         self.pos = sim.pos + self.pos_offset
@@ -120,15 +116,19 @@ class AbstractJSBSimEnv(gym.Env, ABC):
                 return self.new_state, reward, done, {}
 
     def reset(self) -> object: #->observation
-        start_height = np.random.uniform(0, self.z_range[1]- self.z_range[0]) + self.z_range[0] \
-                                         + self.terrain.altitude(self.start[0], self.start[1])  
-        self.start[0] = np.random.uniform(0, self.x_range[1]- self.x_range[0]) + self.x_range[0]
-        self.start[1] = np.random.uniform(0, self.y_range[1]- self.y_range[0]) + self.y_range[0]
-        self.start[2] = start_height
+        self.terrain.map_offset = [np.random.randint(self.map_start_range[0][0], self.map_start_range[0][1]),
+                                   np.random.randint(self.map_start_range[1][0], self.map_start_range[1][1])]
+        self.terrain.define_map_for_plotting(self.x_range, self.y_range)      
         self.goal[0] = np.random.uniform(0, self.x_range[1]- self.x_range[0]) + self.x_range[0]
         self.goal[1] = np.random.uniform(0, self.y_range[1]- self.y_range[0]) + self.y_range[0]
         self.goal[2] = np.random.uniform(0, self.z_range_goal[1]- self.z_range_goal[0]) + self.z_range_goal[0] \
                                         + self.terrain.altitude(self.goal[0], self.goal[1])   
+        self.goal[2] = self.terrain.altitude(self.goal[0], self.goal[1])                                       
+        self.start[0] = np.random.uniform(0, self.x_range[1]- self.x_range[0]) + self.x_range[0]
+        self.start[1] = np.random.uniform(0, self.y_range[1]- self.y_range[0]) + self.y_range[0]
+        self.start[0] = self.start[1] = 0.
+        #self.start[2] = np.random.uniform(self.z_range[0], self.z_range[1]) + max(self.terrain.altitude(self.start[0], self.start[1]), self.goal[2])
+        self.start[2] = self.terrain.altitude(self.start[0], self.start[1])        
         self.pos_offset = self.start.copy()
         self.pos_offset[2] = 0
         self.trajectory=[]   
@@ -151,19 +151,22 @@ class AbstractJSBSimEnv(gym.Env, ABC):
         self._update(self.sim)
         return self._get_state()
 
+
     def render(self, mode='human'):        
         if self.flightRenderer3D is None:
-             from mayavi import mlab
-             from pyface.api import GUI
-             self.mlab = mlab 
-             self.gui = GUI
-             self.flightRenderer3D = plotting.Plotting(None, None, None, self.terrain, self.mlab)
-             self.gui.process_events()
-             self.save_trajectory = True
+            from mayavi import mlab
+            from pyface.api import GUI
+            self.mlab = mlab 
+            self.gui = GUI
+            self.flightRenderer3D = plotting.Plotting(None, None, None, self.terrain, self.mlab)
+            self.gui.process_events()
+            self.save_trajectory = True
+        self.flightRenderer3D.plot_map(self.terrain)            
         self.flightRenderer3D.plot_start(self.start)
         print('Start Position={} goal Position={}'.format(self.start, self.goal))
         self.flightRenderer3D.plot_goal(self.goal, 500)
         self.flightRenderer3D.plot_path(self.trajectory, radius=10)
+        #self.flightRenderer3D.random_balls()
         self.gui.process_events()
 
     def _reset_sim_state(self, state: SimState, engine_on: bool = False):

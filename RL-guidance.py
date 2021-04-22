@@ -11,6 +11,7 @@ from deep_glide.jsbgym_new.pid import PID_angle, PID
 from deep_glide.jsbgym_new.guidance import TrackToFix3D
 from deep_glide.jsbgym_new.sim import Sim,  SimState, TerrainClass, TerrainOcean, SimTimer
 from deep_glide.jsbgym_new.sim_handler_rl import JSBSimEnv_v0, JSBSimEnv_v1, JSBSimEnv_v2, JSBSimEnv_v4
+from deep_glide.jsbgym_new.sim_handler_2d import JSBSimEnv2D_v0
 from typing import Dict, List, Tuple
 from array import array
 import matplotlib.pyplot as plt
@@ -26,7 +27,7 @@ from datetime import datetime
 
 class RL_train:
 
-    simHandler = JSBSimEnv_v4()
+    simHandler = JSBSimEnv2D_v0()
     BATCH_SIZE = 128
  
     def init_rl_agents(self, action_props, load_models):
@@ -83,10 +84,8 @@ class RL_train:
         plt.gcf().canvas.start_event_loop(0.3)
         
             
-    def guidance(self):       
+    def guidance(self, render=True, max_steps = 300, max_episodes = 100):
         logging.basicConfig(level=logging.INFO) 
-        max_steps = 300
-        max_episodes = 100
         for episode in range(0,max_episodes):
             rewards = []
             state = self.simHandler.reset()
@@ -104,7 +103,7 @@ class RL_train:
                 state = new_state                
                 if done: break            
             time2 = datetime.now()
-            self.simHandler.render()
+            if render: self.simHandler.render()
             total_reward = np.sum(rewards)
             print('Episode ', episode,': reward min={:.2f} max={:.2f}, mean={:.2f}, med={:.2f} total={:.2f}   time={:.1f}s'.format(np.min(rewards), 
                     np.max(rewards), np.average(rewards), np.median(rewards), total_reward, (time2-time1).total_seconds()))
@@ -113,10 +112,8 @@ class RL_train:
         print('Fertig')
         self.simHandler.save_rl_agents()
 
-    def guidance_perfect(self):       
+    def guidance_perfect(self, render=True, max_steps = 300, max_episodes = 100):
         logging.basicConfig(level=logging.INFO) 
-        max_steps = 300
-        max_episodes = 100
         for episode in range(0,max_episodes):
             rewards = []
             state = self.simHandler.reset()
@@ -134,19 +131,19 @@ class RL_train:
                 rewards.append(reward)            
                 if done: break            
             time2 = datetime.now()
-            #self.simHandler.render()
+            if render: self.simHandler.render()
             total_reward = np.sum(rewards)
             print('Episode ', episode,': reward min={:.2f} max={:.2f}, mean={:.2f}, med={:.2f} total={:.2f}  episode_len={} time={:.1f}s'.format(np.min(rewards), 
-                    np.max(rewards), np.average(rewards), np.median(rewards), total_reward, step, (time2-time1).total_seconds()))
+                    np.max(rewards), np.average(rewards), np.median(rewards), total_reward, step, (time2-time1).total_seconds()))                    
             self.plot_reward(episode, total_reward/max_steps)
+            print('Start: {} Goal: {}'.format(self.simHandler.start, self.simHandler.goal))
+            input()
             #GUI().process_events()
         print('Fertig')
         self.simHandler.save_rl_agents()
 
-    def height(self):       
+    def height(self, max_steps = 300, max_episodes = 1000):
         logging.basicConfig(level=logging.INFO) 
-        max_steps = 300
-        max_episodes = 1000
         energy = []
         distance = []
         for episode in range(0,max_episodes):
@@ -162,10 +159,8 @@ class RL_train:
                     np.max(x), np.average(x), np.median(x)))
         print('Fertig')
 
-    def guidance_random(self):       
+    def guidance_random(self, render=True, max_steps = 300, max_episodes = 25):
         logging.basicConfig(level=logging.INFO) 
-        max_steps = 300
-        max_episodes = 25
         not_final_reward=[]
         for episode in range(0,max_episodes):
             rewards = []
@@ -185,10 +180,12 @@ class RL_train:
                 rewards.append(reward)            
                 if done: break            
             time2 = datetime.now()
+            if render: self.simHandler.render()
             total_reward = np.sum(rewards)
             print('Episode ', episode,': reward min={:.2f} max={:.2f}, mean={:.2f}, med={:.2f} total={:.2f}  episode_len={} time={:.1f}s'.format(np.min(rewards), 
                     np.max(rewards), np.average(rewards), np.median(rewards), total_reward, step, (time2-time1).total_seconds()))
             self.plot_reward(episode, total_reward/max_steps)
+            input()
             #GUI().process_events()
         x = not_final_reward
         print('Reward not final min={:.5f} max={:.5f}, mean={:.5f}, med={:.5f} total per episode={:.5f}'.format(np.min(x), 
@@ -222,12 +219,12 @@ def main():
     
     rl_trainer = RL_train(state_start, x_goal, step_len = 3000, goal_sample_rate = 0.10, search_radius = 1000, 
                         iter_max = 500, number_neighbors = 10, number_neighbors_goal = 50)
-    # rl_trainer.guidance_perfect() # Funktioniert nicht mit normalisierten States!
+    rl_trainer.guidance_perfect() # Funktioniert nicht mit normalisierten States!
     # rl_trainer.height()
-    rl_trainer.guidance_random()
+    # rl_trainer.guidance_random()
     # rl_trainer.guidance()
 
-if __name__ == '__main__':
+if __name__ == '__main__':    
     main()
     input()
     exit()

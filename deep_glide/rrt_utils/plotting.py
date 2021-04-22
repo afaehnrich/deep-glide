@@ -22,6 +22,7 @@ class Plotting:
     surface = None
     figure = None
     terrain = None
+    ax = None
 
     
     def __init__(self, x_start, x_goal, goal_distance, terrain, mlab):        
@@ -48,10 +49,11 @@ class Plotting:
         if self.figure is None: self.figure = self.mlab.figure(size=(800,800))
         if terrain is None: return
         if remove_old and self.surface is not None: self.surface.remove()
+        if remove_old and self.ax is not None: self.ax.remove()
         self.surface = self.mlab.surf(terrain.X, terrain.Y, terrain.Z, colormap='gist_earth', vmin=-1000, vmax = 4000)
-        ax = self.mlab.axes(self.surface, nb_labels = 10)
-        ax.axes.label_format="%5.0f"
-        ax.axes.font_factor=0.5
+        self.ax = self.mlab.axes(self.surface, nb_labels = 10)
+        self.ax.axes.label_format="%5.0f"
+        self.ax.axes.font_factor=0.5
 
     def plot_start(self, p, remove_old = True):
         self.start = p
@@ -72,6 +74,17 @@ class Plotting:
         self.goal_cylinder = self.mlab.quiver3d(0,0,0, 0,0,1, mode='cylinder', scale_factor=1, color=(1,0,0), opacity = .1,
                                                 extent= [p[0]-distance, p[0]+distance, p[1]-distance ,p[1]+distance , 0, 4000])
 
+    # balls=[]
+    # def random_balls(self):
+    #     for b in self.balls:
+    #         b.remove()
+    #     self.balls=[]
+    #     for i in range(0,100):
+    #         x= np.random.uniform(-5000, 5000)
+    #         y= np.random.uniform(-5000, 5000)
+    #         z = self.terrain.altitude(x,y)
+    #         self.balls.append(self.mlab.points3d(x,y,z, scale_factor=400, color=(1,0,0), opacity = .1))
+   
 
     # def test_height(self):
     #     for i in range (1,200):
@@ -104,9 +117,9 @@ class Plotting:
     cursor = None
 
     def picker_callback(self, picker_obj):
-        print('Picker Callback')
-        print('self:', self)
-        print('pickerobj:', picker_obj)
+        # print('Picker Callback')
+        # print('self:', self)
+        # print('pickerobj:', picker_obj)
         picked = picker_obj.actors
         if self.surface.actor.actor._vtk_obj in [o._vtk_obj for o in picked]:
             # m.mlab_source.points is the points array underlying the vtk

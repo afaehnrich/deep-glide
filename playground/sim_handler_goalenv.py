@@ -61,7 +61,7 @@ class AbstractSimHandlerGoal(gym.GoalEnv, ABC):
         z_range = (0, 8000)
         self.save_trajectory = save_trajectory
         map_offset=(200,60)      
-        self.terrain.define_map(x_range[1]- x_range[0], y_range[1]- y_range[0], (3601//2 + map_offset[0], 3601//2 + map_offset[1]))
+        self.terrain.define_map_for_plotting(x_range[1]- x_range[0], y_range[1]- y_range[0], (3601//2 + map_offset[0], 3601//2 + map_offset[1]))
         self._reset_sim_state(initial_State)
         self.m_kg = self.sim.sim['inertia/mass-slugs'] * 14.5939029372
         self.g_fps2 = self.sim.sim['accelerations/gravity-ft_sec2']

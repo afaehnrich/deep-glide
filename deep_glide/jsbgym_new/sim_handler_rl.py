@@ -1,9 +1,11 @@
 import numpy as np
 from deep_glide.jsbgym_new.sim import Sim, SimState, TerrainClass, TerrainOcean
 from deep_glide.jsbgym_new.abstractSimHandler import AbstractJSBSimEnv, TerminationCondition
-from deep_glide.jsbgym_new.properties import Properties
+from deep_glide.jsbgym_new.properties import Properties, PropertylistToBox
+
 import logging
 from deep_glide.jsbgym_new.guidance import angle_between
+from gym import spaces 
 
 
 class JSBSimEnv_v0(AbstractJSBSimEnv): 
@@ -51,6 +53,9 @@ class JSBSimEnv_v0(AbstractJSBSimEnv):
         #state_start.position = np.array([0,0,3500]) # Start Node
         state_start.position = np.array([0, 0, 3000])  #  Start Node
         state_start.props['ic/h-sl-ft'] = state_start.position[2]/0.3048
+        self.action_space = spaces.Box(*PropertylistToBox(self.action_props))
+        self.observation_space = spaces.Box(*PropertylistToBox(self.observation_props))
+
         return super().__init__(state_start, save_trajectory=False)
 
     def _get_state(self):
@@ -284,7 +289,7 @@ class JSBSimEnv_v4(JSBSimEnv_v3):
         return rew  
 
 
-class JSBSimEnv_v5(JSBSimEnv_v3): 
+class JSBSimEnv_v5(JSBSimEnv_v4): 
     '''
     Wei v3, aber mit leicht geändertem final reward
     '''

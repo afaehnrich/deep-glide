@@ -149,36 +149,42 @@ class TerrainClass:
     resolution = 30 # in m
     
     def __init__(self):
-        f = open('./SRTM/N44E006.hgt', 'rb')
+        path = os.path.dirname(os.path.realpath(__file__))
+        fname = os.path.join(path,'../SRTM/N44E006.hgt')
+        f = open(fname, 'rb')
         format = 'h'    
         data = array(format)
         data.fromfile(f, self.row_length*self.row_length)
         data.byteswap()
         f.close()
-        self.data = np.array(data).reshape(self.row_length,self.row_length)        
+        self.data = np.array(data).reshape(self.row_length,self.row_length)       
+        self.map_offset =  [self.row_length//2, self.row_length//2]
 
-    def define_map(self, xdim, ydim, center_pixel):
-        dx = xdim // self.resolution
-        dy = ydim // self.resolution
-        self.xrange = (-dx*self.resolution/2, dx*self.resolution/2)
-        self.yrange = (-dy*self.resolution/2, dy*self.resolution/2)
-        X=np.arange(self.xrange[0], self.xrange[1]+self.resolution*2, self.resolution)
-        Y=np.arange(self.yrange[0], self.yrange[1]+self.resolution*2, self.resolution)
-        self.X, self.Y = np.mgrid[  self.yrange[0]:self.yrange[1]+self.resolution*2:self.resolution,
-                                    self.xrange[0]:self.xrange[1]+self.resolution*2:self.resolution]
-        self.Z = self.data[ center_pixel[1]-int(dy//2):center_pixel[1]+int(dy//2), center_pixel[0]-int(dx//2):center_pixel[0]+int(dx//2)]
+    def define_map_for_plotting(self, xrange, yrange):
+        # TODO: Namen der Funktion ändern und nach plotting verschieben
+        self.xrange = np.array(xrange, dtype=int) // self.resolution
+        self.yrange = np.array(yrange, dtype=int) // self.resolution
+        # X=np.arange(self.xrange[0], self.xrange[1]+self.resolution*2, self.resolution)
+        # Y=np.arange(self.yrange[0], self.yrange[1]+self.resolution*2, self.resolution)
+        # self.X, self.Y = np.mgrid[  self.xrange[0]:self.xrange[1]+self.resolution*2:self.resolution,
+        #                             self.yrange[0]:self.yrange[1]+self.resolution*2:self.resolution]
+        self.X, self.Y = np.mgrid[xrange[0]:xrange[1]:self.resolution, yrange[0]:yrange[1]:self.resolution]
+        self.Z = self.data[self.map_offset[0]+self.xrange[0]:self.map_offset[0]+self.xrange[1],
+                           self.map_offset[1]+self.yrange[0]:self.map_offset[1]+self.yrange[1]]
         
     def altitude(self, x,y):
-        id_x = int(round((x - self.xrange[0]) / self.resolution))
-        id_y = int(round((y - self.yrange[0]) / self.resolution))
-        if id_x >= self.Z.shape[1] or id_y >= self.Z.shape[0] or id_x < 0 or id_y < 0:
-            return np.math.inf
-        return self.Z[id_y, id_x]
+        id_x = int(round(x / self.resolution)) + self.map_offset[0]
+        id_y = int(round(y / self.resolution)) + self.map_offset[1]
+        if id_x >= self.data.shape[0] or id_y >= self.data.shape[1] or id_x < 0 or id_y < 0:
+            return 0
+        return self.data[id_x, id_y]
 
     def map_window(self, x, y, width, height):
-        x_low = int(round((x - self.xrange[0])/self.resolution - width/2))
-        y_low = int(round((y - self.yrange[0])/self.resolution - height/2))
-        return self.Z[y_low:y_low+height, x_low: x_low+width]
+        x_low = int(round(x / self.resolution)) + self.map_offset[0] - width//2 
+        y_low = int(round(y / self.resolution)) + self.map_offset[1] - height//2 
+        # print('y: [{}, {}]   y: [{}, {}]'.format(y_low,y_low+height, x_low,x_low+width))
+        # exit()
+        return self.data[x_low: x_low+width, y_low:y_low+height]
 
 class TerrainOcean(TerrainClass):
     def __init__(self):

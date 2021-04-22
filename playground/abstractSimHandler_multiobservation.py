@@ -43,7 +43,7 @@ class Observation:
         self.z_range = z_range
         self.z_range_goal = z_range_goal
         self.map_offset = map_offset
-        self.terrain.define_map(self.x_range[1]- self.x_range[0], self.y_range[1]- self.y_range[0], (3601//2 + map_offset[0], 3601//2 + map_offset[1]))
+        self.terrain.define_map_for_plotting(self.x_range[1]- self.x_range[0], self.y_range[1]- self.y_range[0], (3601//2 + map_offset[0], 3601//2 + map_offset[1]))
 
     def get_state(self, sim:Sim):
         state = np.array([sim.sim['attitude/psi-rad'],

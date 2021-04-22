@@ -35,7 +35,7 @@ class RrtStar:
         self.number_neighbors_goal = number_neighbors_goal
         self.s_start = NodeRRT()
         self.s_start.simState = st_start
-        self.terrain.define_map(x_range[1]- x_range[0], y_range[1]- y_range[0], (3601//2 + map_offset[0], 3601//2 + map_offset[1]))
+        self.terrain.define_map_for_plotting(x_range[1]- x_range[0], y_range[1]- y_range[0], (3601//2 + map_offset[0], 3601//2 + map_offset[1]))
         self.simHandler = SimHandler(self.s_start.simState, x_goal, self.terrain)
         self.s_start.energy = self.simHandler.get_energy()
         self.s_goal = NodeRRT()

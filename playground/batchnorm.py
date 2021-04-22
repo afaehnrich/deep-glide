@@ -1,17 +1,27 @@
 import torch
-from torch import nn
-import numpy as np
+import gym
+from stable_baselines3.common.env_checker import check_env
 
-import matplotlib.pyplot as plt
+class aClass:
 
+    def print(self):
+        print('a')
 
-a = np.array([[2,3,5], [4,6,7], [1,5,7]])
-a = np.array([1,2,3,4])
-b = np.kron(a, np.ones((2,2)))
-c= np.ones((8,8))
+    def callprint(self):
+        self.print()
 
-print(a)
-print(a.shape)
-print(b)
-print(b.shape)
-print(np.concatenate([c,b]))
+class bClass(aClass):
+
+    def print(self):
+        print('b')
+
+a=aClass()
+b=bClass()
+
+a.callprint()
+b.callprint()
+
+exit()
+
+env = gym.make('JSBSim2D-v0')
+check_env(env)
