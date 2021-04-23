@@ -123,12 +123,12 @@ class AbstractJSBSimEnv(gym.Env, ABC):
         self.goal[1] = np.random.uniform(0, self.y_range[1]- self.y_range[0]) + self.y_range[0]
         self.goal[2] = np.random.uniform(0, self.z_range_goal[1]- self.z_range_goal[0]) + self.z_range_goal[0] \
                                         + self.terrain.altitude(self.goal[0], self.goal[1])   
-        self.goal[2] = self.terrain.altitude(self.goal[0], self.goal[1])                                       
+        #self.goal[2] = self.terrain.altitude(self.goal[0], self.goal[1])                                       
         self.start[0] = np.random.uniform(0, self.x_range[1]- self.x_range[0]) + self.x_range[0]
         self.start[1] = np.random.uniform(0, self.y_range[1]- self.y_range[0]) + self.y_range[0]
         self.start[0] = self.start[1] = 0.
-        #self.start[2] = np.random.uniform(self.z_range[0], self.z_range[1]) + max(self.terrain.altitude(self.start[0], self.start[1]), self.goal[2])
-        self.start[2] = self.terrain.altitude(self.start[0], self.start[1])        
+        self.start[2] = np.random.uniform(self.z_range[0], self.z_range[1]) + max(self.terrain.altitude(self.start[0], self.start[1]), self.goal[2])
+        #self.start[2] = self.terrain.altitude(self.start[0], self.start[1])        
         self.pos_offset = self.start.copy()
         self.pos_offset[2] = 0
         self.trajectory=[]   
