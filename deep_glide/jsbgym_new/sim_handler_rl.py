@@ -191,7 +191,7 @@ class JSBSimEnv_v1(JSBSimEnv_v0):
             rew = np.nan_to_num(rew, neginf=0, posinf=0)
         return rew
 
-class JSBSimEnv_v2(JSBSimEnv_v0): 
+class JSBSimEnv_v2(JSBSimEnv_v1): 
     '''
     In diesem Env ist der Reward abhängig davon, wie nahe der Agent dem Ziel gekommen ist.
     Im Unterschied zu v0 wird als Zwischen-Reward jedoch nicht die Abweichung Flugwinkel - Winkel zum Ziel bewertet,
@@ -299,9 +299,6 @@ class JSBSimEnv_v5(JSBSimEnv_v2):
     '''
     
     def _checkFinalConditions(self):
-        # if self.pos[2]<self.goal[2]-10:
-        #     logging.debug('   Too low: ',self.pos[2],' < ',self.goal[2]-10)
-        #     self.terminal_condition = TerminationCondition.LowerThanTarget
         if self.pos[2]<=self.terrain.altitude(self.pos[0], self.pos[1])+ self.min_distance_terrain:
             logging.debug('   Terrain: {:.1f} <= {:.1f}+{:.1f}'.format(self.pos[2],
                     self.terrain.altitude(self.pos[0], self.pos[1]), self.min_distance_terrain))
@@ -313,65 +310,29 @@ class JSBSimEnv_v5(JSBSimEnv_v2):
             self.terminal_condition = TerminationCondition.Arrived
         return self.terminal_condition
 
-    # Reward ist von v2 übernommen:
-    # def _reward(self):
-    #     self._checkFinalConditions()
-    #     rew = 0
-    #     if self.terminal_condition == TerminationCondition.NotFinal:
-    #         dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
-    #         energy = self._get_energy()
-    #         if energy == 0:
-    #             rew = 0
-    #         else:
-    #             rew = - dist_target / energy * 29.10
-    #     elif self.terminal_condition == TerminationCondition.Arrived: 
-    #         rew = 10.#  - abs(angle_between(self.goal_dir[0:2], self.speed[0:2])/np.math.pi*5)
-    #     else:
-    #         dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
-    #         rew = -dist_target/3000.# - angle_between(self.goal_dir[0:2], self.speed[0:2])/np.math.pi*5
-    #     if not np.isfinite(rew).all():
-    #         logging.error('Infinite number detected in state. Replacing with zero')
-    #         logging.error('State: {} reward: {}'.format(self._get_state(), rew))
-    #         rew = np.nan_to_num(rew, neginf=0, posinf=0)
-    #     return rew  
+class JSBSimEnv_v6(JSBSimEnv_v5):
+    '''
+    Dieses Env kombiniert v5 (Reward nur, wenn am Boden angekommen) 
+    mit v4 (Final reward abhängig vom Anflugwinkel)
+    '''
 
-
-
-    # def _reward(self, terminal_condition):
-    #     dist_target = np.linalg.norm(self.obs.goal[0:2]-self.obs.pos[0:2])
-    #     dist_to_ground = self.obs.pos[2] - self.terrain.altitude(self.obs.pos[0], self.obs.pos[1])
-    #     #dist_max = np.linalg.norm(np.array([0,0]) - np.array(self.obs.goal[0:2]))
-    #     #reward = -np.log(dist_target/dist_to_ground)
-    #     reward = -np.log(dist_target/800)-dist_target/dist_to_ground
-    #     if terminal_condition == TerminationCondition.Arrived: reward +=15000.
-    #     if terminal_condition == TerminationCondition.Ground: reward -= 5000.
-    #     elif terminal_condition == TerminationCondition.HitTerrain: reward -= 5000.
-    #     elif terminal_condition == TerminationCondition.LowerThanTarget: reward -= 5000.        
-    #     return reward
-
-    # def reward_head(self, step, max_steps):
-    #     dir_target = self.obs.goal-self.obs.pos
-    #     #dir_target = self.obs.goal-self.obs.start
-    #     v_aircraft = self.sim.get_speed_earth()
-    #     reward = -abs(angle_between(dir_target[0:2], v_aircraft[0:2]))/np.math.pi
-    #     done = False
-    #     return self.reward_check_final(reward, done, step, max_steps)
-
-    # def reward_distance(self, step, max_steps):
-    #     dist_target = np.linalg.norm(self.obs.goal[0:2]-self.obs.pos[0:2])
-    #     dist_max = np.linalg.norm(np.array([0,0]) - np.array(self.obs.goal[0:2]))
-    #     reward = -np.clip(-1., 1., dist_target/dist_max)
-    #     done = False
-    #     return self.reward_check_final(reward, done, step, max_steps)
-
-
-    # def reward_head_original(self, terminal_condition):
-    #     dir_target = self.obs.goal-self.obs.pos
-    #     #dir_target = self.obs.goal-self.obs.start
-    #     v_aircraft = self.sim.get_speed_earth()
-    #     reward = -abs(angle_between(dir_target[0:2], v_aircraft[0:2]))
-    #     if terminal_condition == TerminationCondition.Arrived: reward +=50
-    #     elif terminal_condition == TerminationCondition.Ground: reward = reward *100
-    #     elif terminal_condition == TerminationCondition.HitTerrain: reward = reward *100
-    #     elif terminal_condition == TerminationCondition.LowerThanTarget: reward = reward * 100
-    #     return reward
+    def _reward(self):
+        self._checkFinalConditions()
+        rew = 0
+        if self.terminal_condition == TerminationCondition.NotFinal:
+            dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
+            energy = self._get_energy()
+            if energy == 0:
+                rew = 0
+            else:
+                rew = - dist_target / energy * 29.10
+        elif self.terminal_condition == TerminationCondition.Arrived: 
+            rew = 10. - abs(angle_between(self.goal_dir[0:2], self.speed[0:2])/np.math.pi)*15.
+        else:
+            dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
+            rew = -dist_target/3000. - abs(angle_between(self.goal_dir[0:2], self.speed[0:2])/np.math.pi)*15.
+        if not np.isfinite(rew).all():
+            logging.error('Infinite number detected in state. Replacing with zero')
+            logging.error('State: {} reward: {}'.format(self._get_state(), rew))
+            rew = np.nan_to_num(rew, neginf=0, posinf=0)
+        return rew  
