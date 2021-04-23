@@ -1,5 +1,7 @@
 import numpy as np
 import logging
+import os
+from array import array
 
 
 def limit_angle( angle, max_angle):
@@ -35,3 +37,27 @@ class Normalizer:
     def normalize(self, x, add_sample=True):
         if add_sample: self.add_sample(x)
         return (x - self.mean) / np.sqrt(self.std**2+0.00001)
+
+def elevation_asc2hgt(filename_asc, filename_hgt):
+    path = os.path.dirname(os.path.realpath(__file__))
+    fname = os.path.join(path,filename_asc)
+    fname_save = os.path.join(path,filename_hgt)
+    data =[]
+    from datetime import datetime
+    t1 = datetime.now()
+    import csv
+    with open(fname, newline='') as csvfile:
+        reader = csv.reader(csvfile, delimiter=' ')#, quoting=csv.QUOTE_NONNUMERIC)
+        for _ in range(0,6): next(reader)
+        data = list(reader)
+    data=[row[:-1] for row in data]
+    data = [item for sublist in data for item in sublist]
+    data = list(map(int, data))
+    t2=datetime.now()
+    print(t2-t1)
+    format = 'h'    
+    data2 = array(format)
+    data2.fromlist(data)
+    data2.byteswap()
+    f = open(fname_save, 'wb')
+    data2.tofile(f)

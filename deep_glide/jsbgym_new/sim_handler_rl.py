@@ -289,31 +289,51 @@ class JSBSimEnv_v4(JSBSimEnv_v3):
         return rew  
 
 
-class JSBSimEnv_v5(JSBSimEnv_v4): 
+class JSBSimEnv_v5(JSBSimEnv_v2): 
     '''
-    Wei v3, aber mit leicht geändertem final reward
+    In diesem Env ist der Reward abhängig davon, wie nahe der Agent dem Ziel gekommen ist.
+    Der negative reward ist dabei abhängig vom Energieverlust im Verhältnis zur Entfernung zum Ziel (siehe v2).
+    Der Final reward wird erst vergeben, wenn die Höhe abgebaut wurde. 
+    D.h. hier wird auf jeden Fall gelandet - entweder am Ziel oder im "Gelände"
+    Der Anflugwinkel am Ziel spielt keine Rolle.
     '''
-       
-    def _reward(self):
-        self._checkFinalConditions()
-        rew = 0
-        if self.terminal_condition == TerminationCondition.NotFinal:
-            dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
-            energy = self._get_energy()
-            if energy == 0:
-                rew = 0
-            else:
-                rew = - dist_target / energy * 29.10
-        elif self.terminal_condition == TerminationCondition.Arrived: 
-            rew = 10. - abs(angle_between(self.goal_dir[0:2], self.speed[0:2])/np.math.pi)*15.
-        else:
-            dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
-            rew = -dist_target/3000. - abs(angle_between(self.goal_dir[0:2], self.speed[0:2])/np.math.pi)*15.
-        if not np.isfinite(rew).all():
-            logging.error('Infinite number detected in state. Replacing with zero')
-            logging.error('State: {} reward: {}'.format(self._get_state(), rew))
-            rew = np.nan_to_num(rew, neginf=0, posinf=0)
-        return rew  
+    
+    def _checkFinalConditions(self):
+        # if self.pos[2]<self.goal[2]-10:
+        #     logging.debug('   Too low: ',self.pos[2],' < ',self.goal[2]-10)
+        #     self.terminal_condition = TerminationCondition.LowerThanTarget
+        if self.pos[2]<=self.terrain.altitude(self.pos[0], self.pos[1])+ self.min_distance_terrain:
+            logging.debug('   Terrain: {:.1f} <= {:.1f}+{:.1f}'.format(self.pos[2],
+                    self.terrain.altitude(self.pos[0], self.pos[1]), self.min_distance_terrain))
+            self.terminal_condition = TerminationCondition.HitTerrain
+        else: self.terminal_condition = TerminationCondition.NotFinal
+        if self.terminal_condition != TerminationCondition.NotFinal \
+           and np.linalg.norm(self.goal[0:2] - self.pos[0:2])<500:
+            logging.debug('Arrived at Target')
+            self.terminal_condition = TerminationCondition.Arrived
+        return self.terminal_condition
+
+    # Reward ist von v2 übernommen:
+    # def _reward(self):
+    #     self._checkFinalConditions()
+    #     rew = 0
+    #     if self.terminal_condition == TerminationCondition.NotFinal:
+    #         dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
+    #         energy = self._get_energy()
+    #         if energy == 0:
+    #             rew = 0
+    #         else:
+    #             rew = - dist_target / energy * 29.10
+    #     elif self.terminal_condition == TerminationCondition.Arrived: 
+    #         rew = 10.#  - abs(angle_between(self.goal_dir[0:2], self.speed[0:2])/np.math.pi*5)
+    #     else:
+    #         dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
+    #         rew = -dist_target/3000.# - angle_between(self.goal_dir[0:2], self.speed[0:2])/np.math.pi*5
+    #     if not np.isfinite(rew).all():
+    #         logging.error('Infinite number detected in state. Replacing with zero')
+    #         logging.error('State: {} reward: {}'.format(self._get_state(), rew))
+    #         rew = np.nan_to_num(rew, neginf=0, posinf=0)
+    #     return rew  
 
 
 

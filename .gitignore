@@ -3,8 +3,11 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Gezippte HGT-Fukes
+# Gezippte HGT-Files
 SRTM/*.zip
+SRTM/30m/*.zip
+SRTM/90m/*.zip
+
 
 # C extensions
 *.so

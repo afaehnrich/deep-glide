@@ -1,3 +1,5 @@
+from abc import abstractclassmethod, abstractmethod
+from deep_glide.jsbgym_new.utils import elevation_asc2hgt
 import jsbsim
 import os
 from typing import Dict
@@ -143,14 +145,29 @@ class Sim():
         self['gear/gear-cmd-norm'] = value
 
 
-
 class TerrainClass:
+    
+    @abstractmethod
+    def define_map_for_plotting(self, xrange, yrange):
+        pass
+        
+    @abstractmethod
+    def altitude(self, x,y):
+        pass
+
+    @abstractmethod
+    def map_window(self, x, y, width, height):
+        pass
+
+
+class TerrainClass30m(TerrainClass):
     row_length = 3601
     resolution = 30 # in m
+    filename = '../SRTM/30m/N46E008.hgt' # Schweiz
     
     def __init__(self):
         path = os.path.dirname(os.path.realpath(__file__))
-        fname = os.path.join(path,'../SRTM/N44E006.hgt')
+        fname = os.path.join(path,self.filename) # Schweiz
         f = open(fname, 'rb')
         format = 'h'    
         data = array(format)
@@ -186,7 +203,29 @@ class TerrainClass:
         # exit()
         return self.data[x_low: x_low+width, y_low:y_low+height]
 
-class TerrainOcean(TerrainClass):
+class TerrainClass90m(TerrainClass30m):
+    row_length = 6000
+    resolution = 90 # in m
+    filename = '../SRTM/90m/srtm_38_03.hgt'
+
+    # def __init__(self):
+    #     super().__init__()
+    #     #downsample
+    #     # print(self.data.shape)
+    #     # self.data = self.data[::1,::1]
+    #     # print(self.data.shape)
+    #     #exit()
+        
+
+
+    # def __init__(self):
+    #     filename = '../SRTM/90m/srtm_38_03.asc' # Schweiz
+    #     filename_save = '../SRTM/90m/srtm_38_03.hgt'
+    #     elevation_asc2hgt(filename, filename_save)
+    #     exit()
+
+
+class TerrainOcean(TerrainClass90m):
     def __init__(self):
         self.data = np.zeros((self.row_length,self.row_length)) 
 

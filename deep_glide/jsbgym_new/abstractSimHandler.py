@@ -30,7 +30,9 @@ class AbstractJSBSimEnv(gym.Env, ABC):
     y_range = (-5000, 5000)
     z_range = (2000, 4000)
     z_range_goal = (100, 101)
-    map_start_range =( (600,3000), (600, 3000))
+    # map_start_range =( (600,3000), (600, 3000)) # for 30m hgt
+    map_start_range =( (4200,5400), (2400, 3600)) # for 90m hgt srtm_38_03.hgt
+    plot_range =( (-15000, 15000), (-15000, 15000)) # for 90m hgt srtm_38_03.hgt
 
     min_distance_terrain = 100
     trajectory=[]
@@ -118,7 +120,8 @@ class AbstractJSBSimEnv(gym.Env, ABC):
     def reset(self) -> object: #->observation
         self.terrain.map_offset = [np.random.randint(self.map_start_range[0][0], self.map_start_range[0][1]),
                                    np.random.randint(self.map_start_range[1][0], self.map_start_range[1][1])]
-        self.terrain.define_map_for_plotting(self.x_range, self.y_range)      
+        self.terrain.define_map_for_plotting(self.plot_range[0], self.plot_range[1])      
+        
         self.goal[0] = np.random.uniform(0, self.x_range[1]- self.x_range[0]) + self.x_range[0]
         self.goal[1] = np.random.uniform(0, self.y_range[1]- self.y_range[0]) + self.y_range[0]
         self.goal[2] = np.random.uniform(0, self.z_range_goal[1]- self.z_range_goal[0]) + self.z_range_goal[0] \

@@ -28,8 +28,9 @@ class Plotting:
     def __init__(self, x_start, x_goal, goal_distance, terrain, mlab):        
         xI, xG, dG = x_start, x_goal, goal_distance
         self.mlab = mlab
-        self.plot_map(terrain)
         self.terrain = terrain
+        self.scale_factor = self.terrain.resolution/30
+        self.plot_map(terrain)        
         if not xI is None: self.plot_start(xI)
         if not xG is None and not dG is None: self.plot_goal(xG, dG)
         self.figure.on_mouse_pick(self.picker_callback)
@@ -53,15 +54,15 @@ class Plotting:
         self.surface = self.mlab.surf(terrain.X, terrain.Y, terrain.Z, colormap='gist_earth', vmin=-1000, vmax = 4000)
         self.ax = self.mlab.axes(self.surface, nb_labels = 10)
         self.ax.axes.label_format="%5.0f"
-        self.ax.axes.font_factor=0.5
+        self.ax.axes.font_factor=0.5*self.scale_factor
 
     def plot_start(self, p, remove_old = True):
         self.start = p
         if remove_old:
             if self.start_point is not None: self.start_point.remove()
             if self.start_line is not None: self.start_line.remove()
-        self.start_point = self.mlab.points3d(p[0], p[1], p[2], scale_factor=400, color=(0,0,1), opacity = .1)
-        self.start_line = self.mlab.plot3d([p[0], p[0]], [p[1], p[1]], [p[2], 0], tube_radius=20, color=(0,0,1), opacity =.1)
+        self.start_point = self.mlab.points3d(p[0], p[1], p[2], scale_factor=400*self.scale_factor, color=(0,0,1), opacity = .1)
+        self.start_line = self.mlab.plot3d([p[0], p[0]], [p[1], p[1]], [p[2], 0], tube_radius=20*self.scale_factor, color=(0,0,1), opacity =.1)
 
     def plot_goal(self, p, distance, remove_old = True):
         self.goal = p
@@ -69,8 +70,8 @@ class Plotting:
             if self.goal_point is not None: self.goal_point.remove()
             if self.goal_line is not None: self.goal_line.remove()
             if self.goal_cylinder is not None: self.goal_cylinder.remove()
-        self.goal_point = self.mlab.points3d(p[0], p[1], p[2], scale_factor=400, color=(1,0,0), opacity = .1)
-        self.goal_line = self.mlab.plot3d([p[0], p[0]], [p[1], p[1]], [p[2], 0], tube_radius=20, color=(1,0,0), opacity =.1)
+        self.goal_point = self.mlab.points3d(p[0], p[1], p[2], scale_factor=400*self.scale_factor, color=(1,0,0), opacity = .1)
+        self.goal_line = self.mlab.plot3d([p[0], p[0]], [p[1], p[1]], [p[2], 0], tube_radius=20*self.scale_factor, color=(1,0,0), opacity =.1)
         self.goal_cylinder = self.mlab.quiver3d(0,0,0, 0,0,1, mode='cylinder', scale_factor=1, color=(1,0,0), opacity = .1,
                                                 extent= [p[0]-distance, p[0]+distance, p[1]-distance ,p[1]+distance , 0, 4000])
 
@@ -83,7 +84,7 @@ class Plotting:
     #         x= np.random.uniform(-5000, 5000)
     #         y= np.random.uniform(-5000, 5000)
     #         z = self.terrain.altitude(x,y)
-    #         self.balls.append(self.mlab.points3d(x,y,z, scale_factor=400, color=(1,0,0), opacity = .1))
+    #         self.balls.append(self.mlab.points3d(x,y,z, scale_factor=400*self.scale_factor, color=(1,0,0), opacity = .1))
    
 
     # def test_height(self):
@@ -93,7 +94,7 @@ class Plotting:
     #         if z==np.math.inf: 
     #             print('inf')
     #         else:
-    #             self.mlab.points3d(xy[0], xy[1], z , scale_factor=200, color=(1,0,0))
+    #             self.mlab.points3d(xy[0], xy[1], z , scale_factor=200*self.scale_factor, color=(1,0,0))
 
 
     #@staticmethod
@@ -104,7 +105,7 @@ class Plotting:
                     pos_node = node.simState.position
                     pos_parent = node.parent.simState.position
                     node.plot = self.mlab.plot3d([pos_parent[0], pos_node[0]], [pos_parent[1], pos_node[1]], 
-                                            [pos_parent[2], pos_node[2]], tube_radius=20, color=(0,0,1))
+                                            [pos_parent[2], pos_node[2]], tube_radius=20*self.scale_factor, color=(0,0,1))
 
 
     #@staticmethod
@@ -112,7 +113,7 @@ class Plotting:
         if remove_old and self.path is not None: self.path.remove()
         if path is None: return
         if len(path) != 0:
-            self.path = self.mlab.plot3d([x[0] for x in path], [x[1] for x in path], [x[2] for x in path], tube_radius=radius, color=color)
+            self.path = self.mlab.plot3d([x[0] for x in path], [x[1] for x in path], [x[2] for x in path], tube_radius=radius*self.scale_factor, color=color)
     
     cursor = None
 
