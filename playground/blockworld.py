@@ -250,5 +250,6 @@ class Env:
 env = Env()
 env.reset()
 env.render()
+# 3-D-Render kann gerne auch auskommentiert werden. Dann nur 2-D
 env.render_episode_3D()
 input()
