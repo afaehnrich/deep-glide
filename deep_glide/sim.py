@@ -159,6 +159,10 @@ class TerrainClass:
         pass
 
     @abstractmethod
+    def max_altitude(self, x, y, radius):
+        pass
+
+    @abstractmethod
     def map_around_position(self, x, y, width, height):
         pass
 
@@ -192,10 +196,6 @@ class TerrainClass30m(TerrainClass):
         # TODO: Namen der Funktion ändern und nach plotting verschieben
         self.xrange = np.array(xrange, dtype=int) // self.resolution
         self.yrange = np.array(yrange, dtype=int) // self.resolution
-        # X=np.arange(self.xrange[0], self.xrange[1]+self.resolution*2, self.resolution)
-        # Y=np.arange(self.yrange[0], self.yrange[1]+self.resolution*2, self.resolution)
-        # self.X, self.Y = np.mgrid[  self.xrange[0]:self.xrange[1]+self.resolution*2:self.resolution,
-        #                             self.yrange[0]:self.yrange[1]+self.resolution*2:self.resolution]
         self.X, self.Y = np.mgrid[xrange[0]:xrange[1]:self.resolution, yrange[0]:yrange[1]:self.resolution]
         self.Z = self.data[self.map_offset[0]+self.xrange[0]:self.map_offset[0]+self.xrange[1],
                            self.map_offset[1]+self.yrange[0]:self.map_offset[1]+self.yrange[1]]
@@ -208,6 +208,12 @@ class TerrainClass30m(TerrainClass):
             return 0
         return self.data[id_x, id_y]
 
+    def max_altitude(self, x, y, radius):
+        id_x, id_y = self.pixel_from_coordinate((x,y))
+        delta = int(radius / self.resolution)
+        return self.data[id_x-delta:id_x+delta, id_y-delta:id_y+delta].max()
+
+
     def pixel_from_coordinate(self, point):
         x, y = point
         id_x = int(round(x / self.resolution)) + self.map_offset[0]
@@ -218,8 +224,6 @@ class TerrainClass30m(TerrainClass):
         off_x, off_y = self.map_offset
         x_low = int(round(x / self.resolution)) + off_x - width//2 
         y_low = int(round(y / self.resolution)) + off_y - height//2 
-        # print('y: [{}, {}]   y: [{}, {}]'.format(y_low,y_low+height, x_low,x_low+width))
-        # exit()
         return self.data[x_low: x_low+width, y_low:y_low+height]
 
     def get_map(self, p1, p2):
@@ -234,54 +238,38 @@ class TerrainClass90m(TerrainClass30m):
     resolution = 90 # in m
     filename = 'SRTM/90m/srtm_38_03.hgt'
 
-    # def __init__(self):
-    #     super().__init__()
-    #     #downsample
-    #     # print(self.data.shape)
-    #     # self.data = self.data[::1,::1]
-    #     # print(self.data.shape)
-    #     #exit()
-        
-
-
-    # def __init__(self):
-    #     filename = '../SRTM/90m/srtm_38_03.asc' # Schweiz
-    #     filename_save = '../SRTM/90m/srtm_38_03.hgt'
-    #     elevation_asc2hgt(filename, filename_save)
-    #     exit()
-
-
 class TerrainBlockworld(TerrainClass90m):
-    row_length = 6000
-    resolution = 90 # in m
     
-    def __init__(self):
-        self.data = np.zeros((self.row_length,self.row_length))   
+    def __init__(self, ocean=False):
+        if ocean:
+            self.data = np.zeros((self.row_length,self.row_length))
+        else:
+            super().__init__()        
+        self.blocks = np.zeros((self.row_length,self.row_length))   
         self.map_offset =  [self.row_length//2, self.row_length//2]
-        self.create_blocks(100000, 100000)
-    
-    block_dims = np.array([[30, 10],
+        self.create_blocks(10000, False, 100000)
+        self.create_blocks(5000, True)
+
+    block_dimensions = np.array([[30, 10],
                            [60, 10],
                            [90, 10],
                            [10, 30],
                            [10, 60],
                            [10, 90]])
     block_heights = [500., 1000., 2000., 4000.]
-    block_spacings = np.array([[1,1]])
+    block_spacings = np.array([[10,10]])
 
-    def create_blocks(self, n_blocks, n_tries):
+    def create_blocks(self, n_blocks, allow_overlap=False, n_tries=0):
         created = 0
         tried = 0
         random.seed()
+        n_tries = max(n_blocks, n_tries)
         while created < n_blocks and tried < n_tries:
-            print(created, tried, end='\r')
             tried +=1
             block_spacing = random.choice(self.block_spacings)
-            block_dim = random.choice(self.block_dims)
-            spacex, spacey = block_spacing
-            minx = spacex
-            miny = spacey
-            maxx, maxy = np.array(self.data.shape) - block_spacing - block_dim            
+            block_dim = random.choice(self.block_dimensions)
+            minx, miny = block_spacing
+            maxx, maxy = np.array(self.blocks.shape) - block_spacing - block_dim            
             p1 = np.array([np.random.randint(minx, maxx), np.random.randint(miny, maxy)])
             p2 = p1 + block_dim
             x1, y1 = p1
@@ -290,10 +278,11 @@ class TerrainBlockworld(TerrainClass90m):
             p2_check = p2 + block_spacing
             x1c, y1c = p1_check
             x2c, y2c = p2_check
-            if not self.data[x1c:x2c, y1c:y2c].any():
-                self.data[x1:x2, y1:y2].fill(random.choice(self.block_heights))
+            if allow_overlap or not self.blocks[x1c:x2c, y1c:y2c].any():
+                self.blocks[x1:x2, y1:y2].fill(1)
+                height = self.data[x1:x2, y1:y2].min() + random.choice(self.block_heights)
+                self.data[x1:x2, y1:y2] = np.maximum(self.data[x1:x2, y1:y2], np.full(block_dim, height))
                 created +=1
-
 
 class TerrainOcean(TerrainClass90m):
     def __init__(self):

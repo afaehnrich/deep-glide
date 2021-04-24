@@ -27,11 +27,13 @@ class Config:
     goal_ground_distance = (100,100)
     x_range = (-5000, 5000)
     y_range = (-5000, 5000)
-    z_range = (0, 8000)  
+    z_range_start = (0, 8000)  
+    z_range_goal = (0, 4000) 
     # map_start_range =( (600,3000), (600, 3000)) # for 30m hgt
     map_start_range =( (4200,5400), (2400, 3600)) # for 90m hgt srtm_38_03.hgt
     render_range =( (-15000, 15000), (-15000, 15000)) # for 90m hgt srtm_38_03.hgt
     min_distance_terrain = 50
+    ground_distance_radius = 500
     initial_props={
         'ic/terrain-elevation-ft': 0.00000001, # 0.0 erzeugt wohl NaNs
         'ic/p-rad_sec': 0,
@@ -123,34 +125,31 @@ class AbstractJSBSimEnv(gym.Env, ABC):
                 reward = self._reward()
                 return self.new_state, reward, done, {}
 
-    def get_restricted_position(self, h_range):
+    def random_position(self, h_range, radius, z_range):
         rx1,rx2 = self.config.x_range
         ry1,ry2 = self.config.y_range
-        rz1,rz2 = self.config.z_range
+        rz1,rz2 = z_range
         while True:
             x = np.random.uniform(rx1, rx2)
             y = np.random.uniform(ry1, ry2)
             dmin, dmax = h_range
-            dx = np.random.uniform(-1., 1.)
-            dy = np.random.uniform(-1., 1.)
+            dx, dy  = np.random.uniform(.1, 1.,2)*np.random.choice([-90, 90], 2)
             while rx1<=x<=rx2 and ry1<=y<=ry2:
-                h = self.terrain.altitude(x, y)
+                h = self.terrain.max_altitude(x, y, radius)
                 if h+dmin <= rz2 and rz1 <= h+dmax:
                     z = np.random.uniform(max(h + dmin,rz1), min(h+dmax, rz2))
                     return np.array([x,y,z])
                 x += dx
-                y += dy  
+                y += dy    
         
     def reset(self) -> object: #->observation
         self.plot_fig = None
         (mx1, mx2), (my1,my2) = self.config.map_start_range
         self.terrain.map_offset = [np.random.randint(mx1, mx2), np.random.randint(my1, my2)]
         self.terrain.define_map_for_plotting(self.config.render_range[0], self.config.render_range[1])              
-        self.goal = self.get_restricted_position(self.config.goal_ground_distance)
-        self.start = self.get_restricted_position(self.config.start_ground_distance)
-        self.goal_orientation = np.zeros(2)
-        while np.linalg.norm(self.goal_orientation) ==0: 
-            self.goal_orientation = np.random.uniform(-1., 1., 2)
+        self.goal = self.random_position(self.config.goal_ground_distance, self.config.ground_distance_radius, self.config.z_range_goal)
+        self.start = self.random_position(self.config.start_ground_distance, self.config.ground_distance_radius, self.config.z_range_start)
+        self.goal_orientation = np.random.uniform(.01, 1., 2) * np.random.choice([-1,1],2)
         self.goal_orientation = self.goal_orientation / np.linalg.norm(self.goal_orientation)
         self.pos_offset = self.start.copy()
         self.pos_offset[2] = 0
