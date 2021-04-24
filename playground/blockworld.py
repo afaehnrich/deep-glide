@@ -1,13 +1,9 @@
-from abc import abstractclassmethod, abstractmethod
-from deep_glide.utils import elevation_asc2hgt
-import jsbsim
+from abc import abstractmethod
 import os
-from typing import Dict, List
-import time
+from typing import List
 import numpy as np
 from array import array
 import random
-from deep_glide import plotting
 
 from matplotlib import pyplot as plt
 
@@ -251,5 +247,6 @@ env = Env()
 env.reset()
 env.render()
 # 3-D-Render kann gerne auch auskommentiert werden. Dann nur 2-D
+from deep_glide import plotting
 env.render_episode_3D()
 input()
