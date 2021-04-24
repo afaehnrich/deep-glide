@@ -196,9 +196,7 @@ class Env_Stub:
         self.terrain.define_map_for_plotting(self.config.render_range[0], self.config.render_range[1])              
         self.goal = self.random_position(self.config.goal_ground_distance, self.config.ground_distance_radius, self.config.z_range_goal)
         self.start = self.random_position(self.config.start_ground_distance, self.config.ground_distance_radius, self.config.z_range_start)
-        self.goal_orientation = np.zeros(2)
-        while np.linalg.norm(self.goal_orientation) == 0: 
-            self.goal_orientation = np.random.uniform(-1., 1., 2)
+        self.goal_orientation = np.random.uniform(.01, 1., 2) * np.random.choice([-1,1],2)
         self.goal_orientation = self.goal_orientation / np.linalg.norm(self.goal_orientation)
         self.pos_offset = self.start.copy()
         self.pos_offset[2] = 0
