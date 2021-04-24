@@ -7,6 +7,11 @@ import random
 
 from matplotlib import pyplot as plt
 
+'''
+Die Blöcke werden in der Klasse TerrainBlockworld erzeugt.
+
+
+'''
 
 class TerrainClass:
     
@@ -175,8 +180,7 @@ class Env_Stub:
             x = np.random.uniform(rx1, rx2)
             y = np.random.uniform(ry1, ry2)
             dmin, dmax = h_range
-            dx = np.random.uniform(-1., 1.)
-            dy = np.random.uniform(-1., 1.)
+            dx, dy  = np.random.uniform(.01, 1.,2)*np.random.choice([-1, 1], 2)
             while rx1<=x<=rx2 and ry1<=y<=ry2:
                 h = self.terrain.max_altitude(x, y, radius)
                 if h+dmin <= rz2 and rz1 <= h+dmax:
