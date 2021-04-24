@@ -214,7 +214,7 @@ class AbstractJSBSimEnv(gym.Env, ABC):
             self.save_trajectory = True
         self.flightRenderer3D.plot_map(self.terrain)            
         self.flightRenderer3D.plot_start(self.start)
-        print('Start Position={} goal Position={}'.format(self.start, self.goal))
+        #print('Start Position={} goal Position={}'.format(self.start, self.goal))
         self.flightRenderer3D.plot_goal(self.goal, 500)
         self.flightRenderer3D.plot_path(self.trajectory, radius=10)
         self.gui.process_events()
