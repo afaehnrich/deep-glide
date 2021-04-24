@@ -111,7 +111,7 @@ class TerrainBlockworld(TerrainClass90m):
         self.create_blocks(10000, False, 100000)
         self.create_blocks(5000, True)
 
-    block_dims = np.array([[30, 10],
+    block_dimensions = np.array([[30, 10],
                            [60, 10],
                            [90, 10],
                            [10, 30],
@@ -128,7 +128,7 @@ class TerrainBlockworld(TerrainClass90m):
         while created < n_blocks and tried < n_tries:
             tried +=1
             block_spacing = random.choice(self.block_spacings)
-            block_dim = random.choice(self.block_dims)
+            block_dim = random.choice(self.block_dimensions)
             minx, miny = block_spacing
             maxx, maxy = np.array(self.blocks.shape) - block_spacing - block_dim            
             p1 = np.array([np.random.randint(minx, maxx), np.random.randint(miny, maxy)])
@@ -160,7 +160,7 @@ class Config:
     ground_distance_radius = 1500
 
 
-class Env:
+class Env_Stub:
     terrain: TerrainClass
     config = Config()
 
@@ -243,10 +243,11 @@ class Env:
         self.flightRenderer3D.plot_path(self.trajectory, radius=10)
         self.gui.process_events()
 
-env = Env()
+env = Env_Stub()
 env.reset()
 env.render()
 # 3-D-Render kann gerne auch auskommentiert werden. Dann nur 2-D
 from deep_glide import plotting
 env.render_episode_3D()
+
 input()
