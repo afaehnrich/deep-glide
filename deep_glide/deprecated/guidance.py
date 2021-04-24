@@ -1,26 +1,7 @@
 import numpy as np
+from deep_glide.utils import angle_between
 
-def angle_between(v1, v2):
-    #nach https://stackoverflow.com/a/13849249/11041146
-    v1_u = v1 / np.linalg.norm(v1)
-    v2_u = v2 / np.linalg.norm(v2)
-    cross = np.cross(v2,v1)
-    sign = np.sign(cross)
-    if sign == 0: sign = 1
-    angle = np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
-    if np.isnan(angle): return 0
-    return angle*sign
-
-def angle_plane_line(v1_plane:np.array , v2_plane: np.array, v_line: np.array)->float:
-    n = np.cross(v1_plane, v2_plane)
-    cosalpha = np.linalg.norm(np.cross(n, v_line)) / (np.linalg.norm(n) * np.linalg.norm(v_line))
-    return np.math.acos(cosalpha)
-    
-def vector_pitch(v: np.array)->float:
-    n = np.array([0.,0.,1.]) # Normalenvektor der XY-Ebene
-    cosalpha = np.linalg.norm(np.cross(n, v)) / (np.linalg.norm(n) * np.linalg.norm(v))
-    return np.math.acos(cosalpha)* np.sign(v[2]) # ist Z negativ, ist der Pitch kleiner Null
-    
+ 
 
 class  DirectToFix():
     def __init__ (self, position: np.array, target: np.array):
@@ -164,41 +145,3 @@ class TrackToFix3D():
         speed_ = np.array([np.linalg.norm(velocity_ground[0:2]), velocity_ground[2]])
         pitch_cmd = self.ttfh.pitch_target(Puav_, speed_)
         return roll_cmd, pitch_cmd, arrived
-
-
-# class  GotoXY():
-#     def __init__ (self, position: np.array, target: np.array, wind_fps: np.array, speed_fps: float):
-#         self._target = position
-#         self.new_target(target, wind_fps, speed_fps)
-
-#     def heading_target(self, position: np.array) -> tuple((float, bool)):
-#         otd_old = self.on_track_distance
-#         self.on_track_distance = np.dot(self._direction, self._target -  position)
-#         if self.on_track_distance <=0: 
-#             #print('arrived at {}={}'.format(self._target, position))
-#             return self._target_heading, True
-#         self._target_heading = angle_between(np.array([0,1]),self._wind_target -  position)        
-#         return self._target_heading, False
-    
-#     def new_target(self, target: np.array, wind_fps: np.array, speed_fps: float):
-#         self._start = self._target
-#         self._target = target
-#         self._direction = (target - self._start)/np.linalg.norm(target - self._start)
-#         self.on_track_distance = np.dot(self._direction, self._target -  self._start)
-#         self._set_wind_target(wind_fps, speed_fps)     
-#         #self._wind_target = target
-#         print ('new target: {}-->{} dir={} wind_target={} wind={}'.format(self._start, self._target, self._target - self._start, self._wind_target, wind_fps))
-
-#     def _set_wind_target(self, wind_fps: np.array, speed_fps: float):
-#         wind_ms = wind_fps[0:2] * 0.3047999902464
-#         wind_ms = wind_ms
-#         speed_ms = speed_fps * 0.3047999902464
-#         distance_m = np.linalg.norm(self._target - self._start)
-#         t_s = distance_m / speed_ms
-#         self._wind_target = self._target -wind_ms * t_s
-#         self._direction_wind_target = (self._wind_target - self._start)/np.linalg.norm(self._wind_target - self._start)
-#         self.otd_wind_target = np.dot(self._direction_wind_target, self._target -  self._start)
-
-#     def move_wind_target(self, wind_fps: np.array, dt_s: float):
-#         wind_ms = wind_fps[0:2] * 0.3047999902464
-#         self._wind_target = self._wind_target + wind_ms *  dt_s

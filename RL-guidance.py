@@ -7,20 +7,19 @@ import math
 import numpy as np
 #from rrt_utils import queue, plotting
 
-from deep_glide.jsbgym_new.pid import PID_angle, PID
-from deep_glide.jsbgym_new.guidance import TrackToFix3D
-from deep_glide.jsbgym_new.sim import Sim,  SimState, TerrainClass, TerrainOcean, SimTimer
-from deep_glide.jsbgym_new.sim_handler_rl import JSBSimEnv_v0, JSBSimEnv_v1, JSBSimEnv_v2, JSBSimEnv_v4, JSBSimEnv_v5
-from deep_glide.jsbgym_new.sim_handler_2d import JSBSimEnv2D_v0
+from deep_glide.pid import PID_angle, PID
+from deep_glide.sim import Sim,  SimState, TerrainClass, TerrainOcean, SimTimer
+from deep_glide.envs.withoutMap import JSBSimEnv_v0, JSBSimEnv_v1, JSBSimEnv_v2, JSBSimEnv_v4, JSBSimEnv_v5
+from deep_glide.envs.withMap import JSBSimEnv2D_v0
 from typing import Dict, List, Tuple
 from array import array
 import matplotlib.pyplot as plt
 import time
 import signal
 import torch
-from deep_glide.rl_wrapper.RL_wrapper import DDPGagent
-from deep_glide.rl_wrapper.utils import OUNoise, NormalizedEnv
-from deep_glide.rl_wrapper.model import actors, critics
+from deep_glide.deprecated.rl_wrapper.RL_wrapper import DDPGagent
+from deep_glide.deprecated.rl_wrapper.utils import OUNoise, NormalizedEnv
+from deep_glide.deprecated.rl_wrapper.model import actors, critics
 import logging
 from datetime import datetime
 #from pyface.api import GUI
@@ -30,17 +29,17 @@ class RL_train:
     simHandler =  JSBSimEnv_v5() #JSBSimEnv2D_v0()
     BATCH_SIZE = 128
  
-    def init_rl_agents(self, action_props, load_models):
+    def init_rl_agents(self, action_space, obs_space, load_models):
         if torch.cuda.is_available():
             self.device = torch.device("cuda")
             print('torch device: CUDA')
         else:
             self.device = torch.device("cpu")
             print('torch device: cpu')
-        self.agent = DDPGagent(len(self.simHandler.observation_props), action_props, device=self.device, actor_type=actors.lin_4x128, 
+        self.agent = DDPGagent(action_space, obs_space, device=self.device, actor_type=actors.lin_4x128, 
                                 critic_type=critics.lin_4x128, load_from_disk=load_models)
-        self.noise = OUNoise(len(action_props))
-        self.normalizer = NormalizedEnv(action_props)
+        self.noise = OUNoise(action_space)
+        self.normalizer = NormalizedEnv(action_space)
 
     def save_model(self):
         self.agent.save_model()
@@ -49,7 +48,7 @@ class RL_train:
                  goal_sample_rate, search_radius, 
                  iter_max, number_neighbors, number_neighbors_goal):
         self.st_start = st_start
-        self.init_rl_agents(self.simHandler.action_props, load_models=False)
+        self.init_rl_agents(self.simHandler.action_space, self.simHandler.observation_space, load_models=False)
         # ein import von mayavi für das Gesamtprojekt zerstört die JSBSim-Simulation. 
         # Flugrouten werden dann nicht mehr korrekt berechnet - warum auch immer.
         # Deshalb nur lokaler Import.

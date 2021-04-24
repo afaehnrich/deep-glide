@@ -1,5 +1,5 @@
 from abc import abstractclassmethod, abstractmethod
-from deep_glide.jsbgym_new.utils import elevation_asc2hgt
+from deep_glide.utils import elevation_asc2hgt
 import jsbsim
 import os
 from typing import Dict

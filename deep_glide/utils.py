@@ -3,6 +3,27 @@ import logging
 import os
 from array import array
 
+def angle_between(v1, v2):
+    #nach https://stackoverflow.com/a/13849249/11041146
+    v1_u = v1 / np.linalg.norm(v1)
+    v2_u = v2 / np.linalg.norm(v2)
+    cross = np.cross(v2,v1)
+    sign = np.sign(cross)
+    if sign == 0: sign = 1
+    angle = np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
+    if np.isnan(angle): return 0
+    return angle*sign
+
+def angle_plane_line(v1_plane:np.array , v2_plane: np.array, v_line: np.array)->float:
+    n = np.cross(v1_plane, v2_plane)
+    cosalpha = np.linalg.norm(np.cross(n, v_line)) / (np.linalg.norm(n) * np.linalg.norm(v_line))
+    return np.math.acos(cosalpha)
+    
+def vector_pitch(v: np.array)->float:
+    n = np.array([0.,0.,1.]) # Normalenvektor der XY-Ebene
+    cosalpha = np.linalg.norm(np.cross(n, v)) / (np.linalg.norm(n) * np.linalg.norm(v))
+    return np.math.acos(cosalpha)* np.sign(v[2]) # ist Z negativ, ist der Pitch kleiner Null
+   
 
 def limit_angle( angle, max_angle):
     #limitiert den Winkel auf einen +/-halben Kreis, z.B. auf max. -180°..180°

@@ -5,20 +5,21 @@ import torch.nn as nn
 from torch.autograd import Variable
 from .model import actors, critics#, Critic_lin_4x128, Actor_lin_4x128
 from .utils import Memory, Memory_Img, NormalizedEnv
-from deep_glide.jsbgym_new.properties import properties
+from deep_glide.deprecated.properties import properties
 import threading
 from queue import Queue
+from gym import spaces
 
 # nach: https://towardsdatascience.com/deep-deterministic-policy-gradients-explained-2d94655a9b7b
 
 class DDPGagent:
-    def __init__(self, num_states, action_space, device, actor_type, critic_type, 
+    def __init__(self, action_space:spaces.Box, observation_space:spaces.Box, device, actor_type, critic_type, 
                 actor_learning_rate=1e-4, critic_learning_rate=1e-3, gamma=0.99,
                 tau=1e-2, max_memory_size=50000, load_from_disk=False):
         # Params
         self.device = device
-        self.num_states = num_states
-        self.num_actions = len(action_space)
+        self.num_states = observation_space.shape[0]
+        self.num_actions = action_space.shape[0]
         self.normalizer = NormalizedEnv(action_space)
         self.gamma = torch.tensor(gamma).to(device)
         self.tau = torch.tensor(tau).to(device)

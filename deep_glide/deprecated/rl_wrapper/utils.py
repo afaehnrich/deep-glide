@@ -1,20 +1,21 @@
 import numpy as np
 from collections import deque
 import random
-from deep_glide.jsbgym_new.properties import BoundedProperty, properties
+from deep_glide.deprecated.properties import BoundedProperty, properties
 from typing import List
+from gym import spaces
 
 # Ornstein-Ulhenbeck Process
 # Taken from #https://github.com/vitchyr/rlkit/blob/master/rlkit/exploration_strategies/ou_strategy.py
 class OUNoise(object):
-    def __init__(self, num_actions, mu=0.0, theta=0.15, max_sigma=0.3, min_sigma=0.3, decay_period=100000):
+    def __init__(self, action_space:spaces.Box, mu=0.0, theta=0.15, max_sigma=0.3, min_sigma=0.3, decay_period=100000):
         self.mu           = mu
         self.theta        = theta
         self.sigma        = max_sigma
         self.max_sigma    = max_sigma
         self.min_sigma    = min_sigma
         self.decay_period = decay_period
-        self.action_dim   = num_actions
+        self.action_dim   = action_space.shape[0]
         #self.low          = action_space.low
         #self.high         = action_space.high
         self.low          = -1 #tanh
@@ -39,9 +40,9 @@ class OUNoise(object):
 class NormalizedEnv:
     """ Wrap action """
 
-    def __init__(self, action_space: List[BoundedProperty]):
-        self.bounds_high = np.array([a.max for a in action_space])
-        self.bounds_low = np.array([a.min for a in action_space])
+    def __init__(self, action_space:spaces.Box):
+        self.bounds_high = action_space.high
+        self.bounds_low = action_space.low
         self.act_k = (self.bounds_high - self.bounds_low)/ 2.
         self.act_b = (self.bounds_high + self.bounds_low)/ 2.
         self.act_k_inv = 2./(self.bounds_high - self.bounds_low)

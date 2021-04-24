@@ -1,15 +1,14 @@
 from typing import Tuple, List
 import numpy as np
-from deep_glide.jsbgym_new.pid import PID, PID_angle
-from deep_glide.jsbgym_new.guidance import angle_between
-from deep_glide.jsbgym_new.sim import Sim, SimState, TerrainClass, SimTimer, TerrainOcean
-from deep_glide.jsbgym_new.utils import Normalizer
-from deep_glide.jsbgym_new.properties import BoundedProperty, PropertylistToBox
+from deep_glide.pid import PID, PID_angle
+from deep_glide.sim import Sim, SimState, TerrainClass, SimTimer, TerrainOcean
+from deep_glide.utils import Normalizer, angle_between
+from deep_glide.deprecated.properties import BoundedProperty, PropertylistToBox
 from enum import Enum
 import gym
 from gym import spaces
 import logging
-from deep_glide.rrt_utils import plotting
+from deep_glide import plotting
 from abc import ABC, abstractmethod
 
 class TerminationCondition(Enum):
@@ -20,7 +19,7 @@ class TerminationCondition(Enum):
     Ground = 5
     OutOfBounds = 6
 
-class AbstractJSBSimEnv(gym.Env, ABC):
+class AbstractJSBSimEnv2D(gym.Env, ABC):
     
     terrain: TerrainClass = TerrainOcean()
     goal = np.array([0.,0.,0.])

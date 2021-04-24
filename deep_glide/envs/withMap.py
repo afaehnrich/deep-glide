@@ -1,11 +1,11 @@
-from deep_glide.jsbgym_new.sim_handler_rl import JSBSimEnv_v1
+from deep_glide.envs.withoutMap import JSBSimEnv_v1
 import numpy as np
-from deep_glide.jsbgym_new.sim import Sim, SimState, TerrainClass, TerrainOcean
-from deep_glide.jsbgym_new.abstractSimHandler import AbstractJSBSimEnv, TerminationCondition
-from deep_glide.jsbgym_new.properties import Properties, PropertylistToBox
+from deep_glide.sim import Sim, SimState, TerrainClass, TerrainOcean
+from deep_glide.envs.abstractEnvironments import AbstractJSBSimEnv, TerminationCondition
+from deep_glide.deprecated.properties import Properties, PropertylistToBox
 
 import logging
-from deep_glide.jsbgym_new.guidance import angle_between
+from deep_glide.utils import angle_between
 from gym import spaces 
 from matplotlib import pyplot as plt
 

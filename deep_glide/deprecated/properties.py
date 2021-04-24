@@ -10,50 +10,6 @@ class BoundedProperty(collections.namedtuple('BoundedProperty', ['min', 'max']))
 class Property:
     bound = False
 
-
-# class BoundedProperty_JSBSIM:
-#     simHandler: AbstractSimHandlerRL
-#     bound = True
-#     def __init__(self, simHandler, min, max, prop):
-#         self.simHandler = simHandler
-#         self.min = min
-#         self.max = max
-#         self.prop = prop
-    
-#     def get(self):
-#         return self.simHandler.sim.sim[self.prop]
-
-#     def set(self, v):
-#         self.simHandler.sim.sim[self.prop] = v
-
-# class BoundedProperty_JSBSIM:
-#     simHandler: AbstractSimHandlerRL
-#     bound = True
-#     def __init__(self, simHandler, min, max, prop):
-#         self.simHandler = simHandler
-#         self.min = min
-#         self.max = max
-#         self.prop = prop
-    
-#     def get(self):
-#         return self.simHandler.sim.sim[self.prop]
-
-#     def set(self, v):
-#         self.simHandler.sim.sim[self.prop] = v
-
-
-
-
-# class Property_JSBSIM(BoundedProperty_JSBSIM):
-#     bound = False
-#     min = -math.inf
-#     max = math.inf
-
-#     def __init__(self,  get=None, set=None):
-#         self.get = get
-#         self.set = set
-
-
 def PropertylistToBox(plist): #low=True
     boxLow = np.array([p.min for p in plist])
     boxHigh = np.array([p.max for p in plist])

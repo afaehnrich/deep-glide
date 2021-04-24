@@ -1,15 +1,13 @@
 from typing import Tuple, List
 import numpy as np
-from deep_glide.jsbgym_new.pid import PID, PID_angle
-from deep_glide.jsbgym_new.guidance import angle_between
-from deep_glide.jsbgym_new.sim import Sim, SimState, TerrainClass, SimTimer, TerrainOcean
-from deep_glide.jsbgym_new.utils import Normalizer
-from deep_glide.jsbgym_new.properties import BoundedProperty, PropertylistToBox
+from deep_glide.pid import PID, PID_angle
+from deep_glide.sim import Sim, SimState, TerrainClass, SimTimer, TerrainOcean
+from deep_glide.utils import Normalizer, angle_between
 from enum import Enum
 import gym
 from gym import spaces
 import logging
-from deep_glide.rrt_utils import plotting
+from deep_glide import plotting
 from abc import ABC, abstractmethod
 
 class TerminationCondition(Enum):
@@ -38,13 +36,11 @@ class AbstractJSBSimEnv(gym.Env, ABC):
     trajectory=[]
     stateNormalizer = Normalizer()
 
-    action_props: List[BoundedProperty] = None
-    observation_props: List[BoundedProperty] = None
     flightRenderer3D = None
     
     metadata = {'render.modes': ['human']}
     action_space: spaces.Box = None
-    observation_space: spaces.Box
+    observation_space: spaces.Box = None
     sim: Sim
     state: SimState = SimState()
     min_distance_terrain = 100

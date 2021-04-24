@@ -1,12 +1,11 @@
 import numpy as np
-from deep_glide.jsbgym_new.sim import Sim, SimState, TerrainClass, TerrainOcean
-from deep_glide.jsbgym_new.abstractSimHandler import AbstractJSBSimEnv, TerminationCondition
-from deep_glide.jsbgym_new.properties import Properties, PropertylistToBox
+from deep_glide.sim import Sim, SimState, TerrainClass, TerrainOcean
+from deep_glide.envs.abstractEnvironments import AbstractJSBSimEnv, TerminationCondition
 
 import logging
-from deep_glide.jsbgym_new.guidance import angle_between
+from deep_glide.utils import angle_between
 from gym import spaces 
-
+import math
 
 class JSBSimEnv_v0(AbstractJSBSimEnv): 
     '''
@@ -17,26 +16,6 @@ class JSBSimEnv_v0(AbstractJSBSimEnv):
     metadata = {'render.modes': ['human']}
 
     terrain: TerrainClass = TerrainOcean()
-
-    action_props = [Properties.custom_dir_x,
-                    Properties.custom_dir_y]
-    #               ,rl_wrapper.properties.Properties.custom_dir_z]
-
-    observation_props = [Properties.attitude_psi_rad,
-                        Properties.attitude_roll_rad,
-                        Properties.velocities_p_rad_sec,
-                        Properties.velocities_q_rad_sec,
-                        Properties.velocities_r_rad_sec,
-                        Properties.infinity,
-                        Properties.infinity,
-                        Properties.infinity,
-                        Properties.infinity,
-                        Properties.infinity,
-                        Properties.infinity,
-                        Properties.infinity,
-                        Properties.infinity,
-                        Properties.infinity
-                        ]
 
     def __init__(self):
         initial_props={
@@ -53,10 +32,19 @@ class JSBSimEnv_v0(AbstractJSBSimEnv):
         #state_start.position = np.array([0,0,3500]) # Start Node
         state_start.position = np.array([0, 0, 3000])  #  Start Node
         state_start.props['ic/h-sl-ft'] = state_start.position[2]/0.3048
-        self.action_space = spaces.Box(*PropertylistToBox(self.action_props))
-        self.observation_space = spaces.Box(*PropertylistToBox(self.observation_props))
 
         return super().__init__(state_start, save_trajectory=False)
+
+    '''
+    Alle Environments bekommen den gleichen State, damit hinterher Transfer Learning angewendet werden kann.
+    '''
+
+    action_space = spaces.Box( low = np.array([-1., -1.]),
+                              high = np.array([ 1.,  1.]) )
+    observation_space = spaces.Box( low = np.array([0., -math.pi, -math.inf, -math.inf, -math.inf, -math.inf, -math.inf, 
+                                           -math.inf, -math.inf, -math.inf, -math.inf, -math.inf, -math.inf, -math.inf, -1, -1]),
+                                    high = np.array([2.0 * math.pi,  math.pi, -math.inf, -math.inf, -math.inf, -math.inf, -math.inf,
+                                            -math.inf, -math.inf, -math.inf, -math.inf, -math.inf, -math.inf, -math.inf, 1, 1]) )
 
     def _get_state(self):
         state = np.array([self.sim.sim['attitude/psi-rad'],
@@ -72,9 +60,26 @@ class JSBSimEnv_v0(AbstractJSBSimEnv):
                         self.goal[2],
                         self.speed[0],
                         self.speed[1],
-                        self.speed[2]
+                        self.speed[2],
+                        self.goal_orientation[0],
+                        self.goal_orientation[1]
                         ])
-        return self.stateNormalizer.normalize(state)
+        if not np.isfinite(state).all():
+            logging.error('Infinite number detected in state. Replacing with zero')
+            logging.error('State: {}'.format(state))
+            state = np.nan_to_num(state, neginf=0, posinf=0)
+        state = self.stateNormalizer.normalize(state)
+        if not np.isfinite(state).all():
+            logging.error('Infinite number after Normalization!')    
+            raise ValueError()
+        return state
+
+    def reset(self):
+        self.goal_orientation = np.zeros(2)
+        while np.linalg.norm(self.goal_orientation) ==0: 
+            self.goal_orientation = np.random.uniform(-1., 1., 2)
+        self.goal_orientation = self.goal_orientation / np.linalg.norm(self.goal_orientation) 
+        return super().reset()
 
     def _checkFinalConditions(self):
         if np.linalg.norm(self.goal[0:2] - self.pos[0:2])<500:
@@ -115,59 +120,6 @@ class JSBSimEnv_v1(JSBSimEnv_v0):
     In diesem Env ist der Reward abhängig davon, wie nahe der Agent dem Ziel gekommen ist und in welchem Winkel zum Ziel die Ankunft erfolgte.
     Die Anflughöhe wird nicht bewertet.
     '''
-
-    observation_props = [Properties.attitude_psi_rad,
-                        Properties.attitude_roll_rad,
-                        Properties.velocities_p_rad_sec,
-                        Properties.velocities_q_rad_sec,
-                        Properties.velocities_r_rad_sec,
-                        Properties.infinity,
-                        Properties.infinity,
-                        Properties.infinity,
-                        Properties.infinity,
-                        Properties.infinity,
-                        Properties.infinity,
-                        Properties.infinity,
-                        Properties.infinity,
-                        Properties.infinity,
-                        Properties.plusminusone,
-                        Properties.plusminusone
-                        ]
-
-    def _get_state(self):
-        state = np.array([self.sim.sim['attitude/psi-rad'],
-                        self.sim.sim['attitude/roll-rad'],
-                        self.sim.sim['velocities/p-rad_sec'],
-                        self.sim.sim['velocities/q-rad_sec'],
-                        self.sim.sim['velocities/r-rad_sec'],
-                        self.pos[0],
-                        self.pos[1],
-                        self.pos[2],
-                        self.goal[0],
-                        self.goal[1],
-                        self.goal[2],
-                        self.speed[0],
-                        self.speed[1],
-                        self.speed[2],
-                        self.goal_dir[0],
-                        self.goal_dir[1]
-                        ])
-        if not np.isfinite(state).all():
-            logging.error('Infinite number detected in state. Replacing with zero')
-            logging.error('State: {}'.format(state))
-            state = np.nan_to_num(state, neginf=0, posinf=0)
-        state = self.stateNormalizer.normalize(state)
-        if not np.isfinite(state).all():
-            logging.error('Infinite number after Normalization!')    
-            raise ValueError()
-        return state
-
-    def reset(self):
-        self.goal_dir = np.zeros(2)
-        while np.linalg.norm(self.goal_dir) ==0: 
-            self.goal_dir = np.random.uniform(-1., 1., 2)
-        self.goal_dir = self.goal_dir / np.linalg.norm(self.goal_dir) 
-        return super().reset()
     
     # Rewards ohne den Final Reward bei 25 Episoden mit random actions:
     # Reward not final min=-0.00999 max=-0.00000, mean=-0.00489, med=-0.00483 total per episode=-0.40984
@@ -181,10 +133,10 @@ class JSBSimEnv_v1(JSBSimEnv_v0):
             if angle == 0: return 0.
             rew = -abs(angle_between(dir_target[0:2], self.speed[0:2]))/np.math.pi / 100.       
         elif self.terminal_condition == TerminationCondition.Arrived: 
-            rew = 10. - abs(angle_between(self.goal_dir[0:2], self.speed[0:2])/np.math.pi*5)
+            rew = 10. - abs(angle_between(self.goal_orientation[0:2], self.speed[0:2])/np.math.pi*5)
         else:
             dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
-            rew = -dist_target/3000. - abs(angle_between(self.goal_dir[0:2], self.speed[0:2])/np.math.pi*5)
+            rew = -dist_target/3000. - abs(angle_between(self.goal_orientation[0:2], self.speed[0:2])/np.math.pi*5)
         if not np.isfinite(rew).all():
             logging.error('Infinite number detected in state. Replacing with zero')
             logging.error('State: {} reward: {}'.format(self._get_state(), rew))
@@ -252,10 +204,10 @@ class JSBSimEnv_v3(JSBSimEnv_v1):
             else:
                 rew = - dist_target / energy * 29.10
         elif self.terminal_condition == TerminationCondition.Arrived: 
-            rew = 10. - abs(angle_between(self.goal_dir[0:2], self.speed[0:2])/np.math.pi*5)
+            rew = 10. - abs(angle_between(self.goal_orientation[0:2], self.speed[0:2])/np.math.pi*5)
         else:
             dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
-            rew = -dist_target/3000. - abs(angle_between(self.goal_dir[0:2], self.speed[0:2])/np.math.pi*5)
+            rew = -dist_target/3000. - abs(angle_between(self.goal_orientation[0:2], self.speed[0:2])/np.math.pi*5)
         if not np.isfinite(rew).all():
             logging.error('Infinite number detected in state. Replacing with zero')
             logging.error('State: {} reward: {}'.format(self._get_state(), rew))
@@ -278,10 +230,10 @@ class JSBSimEnv_v4(JSBSimEnv_v3):
             else:
                 rew = - dist_target / energy * 29.10
         elif self.terminal_condition == TerminationCondition.Arrived: 
-            rew = 10. - abs(angle_between(self.goal_dir[0:2], self.speed[0:2])/np.math.pi)*15.
+            rew = 10. - abs(angle_between(self.goal_orientation[0:2], self.speed[0:2])/np.math.pi)*15.
         else:
             dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
-            rew = -dist_target/3000. - abs(angle_between(self.goal_dir[0:2], self.speed[0:2])/np.math.pi)*15.
+            rew = -dist_target/3000. - abs(angle_between(self.goal_orientation[0:2], self.speed[0:2])/np.math.pi)*15.
         if not np.isfinite(rew).all():
             logging.error('Infinite number detected in state. Replacing with zero')
             logging.error('State: {} reward: {}'.format(self._get_state(), rew))
@@ -327,10 +279,10 @@ class JSBSimEnv_v6(JSBSimEnv_v5):
             else:
                 rew = - dist_target / energy * 29.10
         elif self.terminal_condition == TerminationCondition.Arrived: 
-            rew = 10. - abs(angle_between(self.goal_dir[0:2], self.speed[0:2])/np.math.pi)*15.
+            rew = 10. - abs(angle_between(self.goal_orientation[0:2], self.speed[0:2])/np.math.pi)*15.
         else:
             dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
-            rew = -dist_target/3000. - abs(angle_between(self.goal_dir[0:2], self.speed[0:2])/np.math.pi)*15.
+            rew = -dist_target/3000. - abs(angle_between(self.goal_orientation[0:2], self.speed[0:2])/np.math.pi)*15.
         if not np.isfinite(rew).all():
             logging.error('Infinite number detected in state. Replacing with zero')
             logging.error('State: {} reward: {}'.format(self._get_state(), rew))

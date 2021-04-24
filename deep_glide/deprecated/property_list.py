@@ -1,9 +1,9 @@
 import collections
-from deep_glide.jsbgym_new.abstractSimHandler import AbstractJSBSimEnv as SH
+from deep_glide.envs.abstractSimHandler import AbstractJSBSimEnv as SH
 import math
 import numpy as np
-from deep_glide.jsbgym_new.properties import BoundedProperty2, Property2
-from deep_glide.jsbgym_new.sim import Sim
+from deep_glide.properties import BoundedProperty2, Property2
+from deep_glide.sim import Sim
 
 
 class Properties2:
