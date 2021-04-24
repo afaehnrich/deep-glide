@@ -9,6 +9,9 @@ from gym import spaces
 import logging
 from deep_glide import plotting
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from matplotlib import pyplot as plt
+
 
 class TerminationCondition(Enum):
     NotFinal = 0
@@ -18,32 +21,17 @@ class TerminationCondition(Enum):
     Ground = 5
     OutOfBounds = 6
 
-class AbstractJSBSimEnv(gym.Env, ABC):
-    
-    terrain: TerrainClass = TerrainOcean()
-    goal = np.array([0.,0.,0.])
-    pos = np.array([0.,0.,0.])
-    start = np.array([0.,0.,0.])
+@dataclass
+class Config:
+    start_ground_distance = (1000,4000)
+    goal_ground_distance = (100,100)
     x_range = (-5000, 5000)
     y_range = (-5000, 5000)
-    z_range = (2000, 4000)
-    z_range_goal = (100, 101)
+    z_range = (0, 8000)  
     # map_start_range =( (600,3000), (600, 3000)) # for 30m hgt
     map_start_range =( (4200,5400), (2400, 3600)) # for 90m hgt srtm_38_03.hgt
-    plot_range =( (-15000, 15000), (-15000, 15000)) # for 90m hgt srtm_38_03.hgt
-
-    min_distance_terrain = 100
-    trajectory=[]
-    stateNormalizer = Normalizer()
-
-    flightRenderer3D = None
-    
-    metadata = {'render.modes': ['human']}
-    action_space: spaces.Box = None
-    observation_space: spaces.Box = None
-    sim: Sim
-    state: SimState = SimState()
-    min_distance_terrain = 100
+    render_range =( (-15000, 15000), (-15000, 15000)) # for 90m hgt srtm_38_03.hgt
+    min_distance_terrain = 50
     initial_props={
         'ic/terrain-elevation-ft': 0.00000001, # 0.0 erzeugt wohl NaNs
         'ic/p-rad_sec': 0,
@@ -57,6 +45,27 @@ class AbstractJSBSimEnv(gym.Env, ABC):
         'fcs/throttle-cmd-norm': 0.0, # 0.8
         'fcs/mixture-cmd-norm': 0.0, # 0.8
     }
+
+class AbstractJSBSimEnv(gym.Env, ABC):
+
+    config = Config()    
+    terrain: TerrainClass = TerrainOcean()
+
+    goal: np.array # = np.array([0.,0.,0.])
+    pos: np.array # = np.array([0.,0.,0.])
+    start: np.array # = np.array([0.,0.,0.])
+    goal_orientation: np.array # = np.array([0.,0.])
+
+    trajectory=[]
+    stateNormalizer = Normalizer()
+
+    flightRenderer3D = None
+    
+    metadata = {'render.modes': ['human']}
+    action_space: spaces.Box = None
+    observation_space: spaces.Box = None
+    sim: Sim
+    state: SimState = SimState()
 
     @abstractmethod
     def _checkFinalConditions(self):
@@ -74,13 +83,14 @@ class AbstractJSBSimEnv(gym.Env, ABC):
     def _get_state(self):
         pass
 
-    def __init__(self, initial_State: SimState, save_trajectory = False):                
-        super().__init__()      
+    def __init__(self, save_trajectory = False):                
+        super().__init__()
         self.sim = Sim(sim_dt = 0.02)
         self.save_trajectory = save_trajectory  
         self.m_kg = self.sim.sim['inertia/mass-slugs'] * 14.5939029372
         self.g_fps2 = self.sim.sim['accelerations/gravity-ft_sec2']
-        self.initial_state = initial_State
+        self.initial_state = SimState()
+        self.initial_state.props = self.config.initial_props
 
     def _update(self, sim:Sim ):
         self.pos = sim.pos + self.pos_offset
@@ -113,21 +123,35 @@ class AbstractJSBSimEnv(gym.Env, ABC):
                 reward = self._reward()
                 return self.new_state, reward, done, {}
 
-    def reset(self) -> object: #->observation
-        self.terrain.map_offset = [np.random.randint(self.map_start_range[0][0], self.map_start_range[0][1]),
-                                   np.random.randint(self.map_start_range[1][0], self.map_start_range[1][1])]
-        self.terrain.define_map_for_plotting(self.plot_range[0], self.plot_range[1])      
+    def get_restricted_position(self, h_range):
+        rx1,rx2 = self.config.x_range
+        ry1,ry2 = self.config.y_range
+        rz1,rz2 = self.config.z_range
+        while True:
+            x = np.random.uniform(rx1, rx2)
+            y = np.random.uniform(ry1, ry2)
+            dmin, dmax = h_range
+            dx = np.random.uniform(-1., 1.)
+            dy = np.random.uniform(-1., 1.)
+            while rx1<=x<=rx2 and ry1<=y<=ry2:
+                h = self.terrain.altitude(x, y)
+                if h+dmin <= rz2 and rz1 <= h+dmax:
+                    z = np.random.uniform(max(h + dmin,rz1), min(h+dmax, rz2))
+                    return np.array([x,y,z])
+                x += dx
+                y += dy  
         
-        self.goal[0] = np.random.uniform(0, self.x_range[1]- self.x_range[0]) + self.x_range[0]
-        self.goal[1] = np.random.uniform(0, self.y_range[1]- self.y_range[0]) + self.y_range[0]
-        self.goal[2] = np.random.uniform(0, self.z_range_goal[1]- self.z_range_goal[0]) + self.z_range_goal[0] \
-                                        + self.terrain.altitude(self.goal[0], self.goal[1])   
-        #self.goal[2] = self.terrain.altitude(self.goal[0], self.goal[1])                                       
-        self.start[0] = np.random.uniform(0, self.x_range[1]- self.x_range[0]) + self.x_range[0]
-        self.start[1] = np.random.uniform(0, self.y_range[1]- self.y_range[0]) + self.y_range[0]
-        #self.start[0] = self.start[1] = 0.
-        self.start[2] = np.random.uniform(self.z_range[0], self.z_range[1]) + max(self.terrain.altitude(self.start[0], self.start[1]), self.goal[2])
-        #self.start[2] = self.terrain.altitude(self.start[0], self.start[1])        
+    def reset(self) -> object: #->observation
+        self.plot_fig = None
+        (mx1, mx2), (my1,my2) = self.config.map_start_range
+        self.terrain.map_offset = [np.random.randint(mx1, mx2), np.random.randint(my1, my2)]
+        self.terrain.define_map_for_plotting(self.config.render_range[0], self.config.render_range[1])              
+        self.goal = self.get_restricted_position(self.config.goal_ground_distance)
+        self.start = self.get_restricted_position(self.config.start_ground_distance)
+        self.goal_orientation = np.zeros(2)
+        while np.linalg.norm(self.goal_orientation) ==0: 
+            self.goal_orientation = np.random.uniform(-1., 1., 2)
+        self.goal_orientation = self.goal_orientation / np.linalg.norm(self.goal_orientation)
         self.pos_offset = self.start.copy()
         self.pos_offset[2] = 0
         self.trajectory=[]   
@@ -149,9 +173,38 @@ class AbstractJSBSimEnv(gym.Env, ABC):
         self.sim.run()
         self._update(self.sim)
         return self._get_state()
+    
+    plot_fig: plt.figure = None
+
+    def render(self, mode='human'):
+        if self.plot_fig is None:
+            self.plot_fig = plt.figure('render 2D', figsize=(10, 10), dpi=80)
+            (x1,x2), (y1,y2) = self.config.render_range
+            img = self.terrain.get_map((x1,y1), (x2,y2))
+            from scipy import ndimage
+            img = ndimage.rotate(img, 90)
+            plt.clf()
+            plt.imshow(img, cmap='gist_earth', vmin=-1000, vmax = 4000, origin='upper', extent=(x1,x2,y1,y2))
+            xs,ys, _ = self.start
+            xg,yg, _ = self.goal
+            xgo, ygo = self.goal_orientation
+            plt.plot(xs,ys,'ro')
+            plt.plot([xg,xg-xgo*500],[yg,yg-ygo*500], 'b-')
+            plt.plot(xg,yg,'ro')
+            plt.ion()
+            plt.show()            
+        plt.figure(self.plot_fig.number)        
+        x, y, z = self.pos
+        z_max  = self.start[2]
+        z_min = self.goal[2]        
+        color_z = (z-z_min)/(z_max-z_min)
+        color_z = 1-max(min(color_z, 1),0)
+        plt.plot(x,y, '.', color=(1,color_z,0))
+        plt.gcf().canvas.draw_idle()
+        plt.gcf().canvas.start_event_loop(0.0001)
 
 
-    def render(self, mode='human'):        
+    def render_episode_3D(self):        
         if self.flightRenderer3D is None:
             from mayavi import mlab
             from pyface.api import GUI
@@ -165,13 +218,30 @@ class AbstractJSBSimEnv(gym.Env, ABC):
         print('Start Position={} goal Position={}'.format(self.start, self.goal))
         self.flightRenderer3D.plot_goal(self.goal, 500)
         self.flightRenderer3D.plot_path(self.trajectory, radius=10)
-        #self.flightRenderer3D.random_balls()
         self.gui.process_events()
+
+    plot_episode_2d = None
+
+    def render_episode_2D(self):
+        pass
+        # if self.plot_episode_2d is None:
+        #     self.plot_episode_2d = plt.figure('episode 2D')
+        #     img = self.terrain.map_window(self.pos[0], self.pos[1], self.OBS_WIDTH, self.OBS_HEIGHT).copy()            
+        #     from scipy import ndimage
+        #     img = ndimage.rotate(img, 90)
+        #     plt.clf()
+        #     plt.imshow(img, cmap='gist_earth', vmin=-1000, vmax = 4000, origin='lower', extent=(0,1000,0,1000))
+        #     plt.ion()
+        #     plt.show()
+        #     self.save_trajectory = True
+        # plt.figure(self.plot_episode_2d.number)
+        # plt.plot()
+
 
     def _reset_sim_state(self, state: SimState, engine_on: bool = False):
         state.position = state.position
         state.props['ic/h-sl-ft'] = state.position[2]/0.3048
-        self.sim.reinitialise({**self.initial_props, **state.props})
+        self.sim.reinitialise({**self.config.initial_props, **state.props})
         if engine_on:
             self.sim.start_engines()
             self.sim.set_throttle_mixture_controls(0.8, 0.8)

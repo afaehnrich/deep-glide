@@ -39,10 +39,6 @@ class Normalizer:
     epsion = 0.0001
 
     def add_sample(self,x):
-        _mean = self.mean
-        _std = self.std
-        _var = self.variance
-        _squaresum = self.squaresum
         self.mean = self.mean*self.n
         self.variance = self.variance * self.n
         self.n +=1.
@@ -53,7 +49,10 @@ class Normalizer:
         self.variance = 1/(self.n)*self.squaresum - self.mean**2        
         self.variance = np.nan_to_num(self.variance, neginf=0, posinf=0)
         self.std = np.sqrt(self.variance)
-        self.std = np.nan_to_num(self.std, neginf=0, posinf=0)        
+        self.std = np.nan_to_num(self.std, neginf=0, posinf=0)
+        if self.n % 50000 == 0:
+            with open('normalizer.txt', 'a') as file: 
+                file.write('n_step={}\r\nMean={}\r\nStd={}\r\n\r\n'.format(self.n, self.mean, self.std))        
 
     def normalize(self, x, add_sample=True):
         if add_sample: self.add_sample(x)

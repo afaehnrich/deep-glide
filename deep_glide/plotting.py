@@ -114,7 +114,6 @@ class Plotting:
         if path is None: return
         if len(path) != 0:
             self.path = self.mlab.plot3d([x[0] for x in path], [x[1] for x in path], [x[2] for x in path], tube_radius=radius*self.scale_factor, color=color)
-    
     cursor = None
 
     def picker_callback(self, picker_obj):

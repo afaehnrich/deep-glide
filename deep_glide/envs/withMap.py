@@ -3,6 +3,7 @@ import numpy as np
 from deep_glide.sim import Sim, SimState, TerrainClass, TerrainOcean
 from deep_glide.envs.abstractEnvironments import AbstractJSBSimEnv, TerminationCondition
 from deep_glide.deprecated.properties import Properties, PropertylistToBox
+from gym.envs.registration import register
 
 import logging
 from deep_glide.utils import angle_between
@@ -43,8 +44,8 @@ class JSBSimEnv2D_v0(JSBSimEnv_v1):
             plt.ion()
             plt.show()
         plt.figure(self.plot_fig.number)
-        img = self.terrain.map_window(self.pos[0], self.pos[1], self.OBS_WIDTH, self.OBS_HEIGHT).copy()
-        img = self.terrain.map_window(self.pos[0], self.pos[1], 333, 333).copy()
+        img = self.terrain.map_around_position(self.pos[0], self.pos[1], self.OBS_WIDTH, self.OBS_HEIGHT).copy()
+        img = self.terrain.map_around_position(self.pos[0], self.pos[1], 333, 333).copy()
         from scipy import ndimage
         img = ndimage.rotate(img, 90)
         plt.clf()
@@ -74,7 +75,7 @@ class JSBSimEnv2D_v0(JSBSimEnv_v1):
                         self.goal_dir[1]
                         ])
         # state_float = np.kron(state_float, np.ones((HUD_DIM, HUD_DIM))) # konvert to 2D-"HUD"
-        state = self.terrain.map_window(self.pos[0], self.pos[1], self.OBS_WIDTH, self.OBS_HEIGHT).copy()
+        state = self.terrain.map_around_position(self.pos[0], self.pos[1], self.OBS_WIDTH, self.OBS_HEIGHT).copy()
         state = state.reshape((self.OBS_HEIGHT * self.OBS_WIDTH,))
         state[0:state_float.shape[0]]=state_float # die Flugparameter in die letzte Zeile einfügen
         state = self.stateNormalizer.normalize(state)
@@ -112,4 +113,11 @@ class JSBSimEnv2D_v0(JSBSimEnv_v1):
     #     if self.terminal_condition == TerminationCondition.Arrived: return +10.
     #     dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
     #     return -dist_target/3000.
+
+register(
+    id='JSBSim2D-v0',
+    entry_point='deep_glide.envs.withMap:JSBSimEnv2D_v0',
+    max_episode_steps=999,
+    reward_threshold=1000.0,
+)
 

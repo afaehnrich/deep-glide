@@ -1,6 +1,7 @@
 import numpy as np
 from deep_glide.sim import Sim, SimState, TerrainClass, TerrainOcean
 from deep_glide.envs.abstractEnvironments import AbstractJSBSimEnv, TerminationCondition
+from gym.envs.registration import register
 
 import logging
 from deep_glide.utils import angle_between
@@ -17,38 +18,17 @@ class JSBSimEnv_v0(AbstractJSBSimEnv):
 
     terrain: TerrainClass = TerrainOcean()
 
-    def __init__(self):
-        initial_props={
-                #'ic/h-sl-ft': 0,#3600./0.3048,
-                'ic/long-gc-deg': -2.3273,  # die Koordinaten stimmen nicht mit den Höhendaten überein!
-                'ic/lat-geod-deg': 51.3781, # macht aber nix
-                'ic/u-fps': 120, #cruise speed Chessna = 120 ft/s
-                'ic/v-fps': 0,
-                'ic/w-fps': 0,
-                'ic/psi-true-rad': 1.0,
-            }
-        state_start = SimState()
-        state_start.props = initial_props
-        #state_start.position = np.array([0,0,3500]) # Start Node
-        state_start.position = np.array([0, 0, 3000])  #  Start Node
-        state_start.props['ic/h-sl-ft'] = state_start.position[2]/0.3048
-
-        return super().__init__(state_start, save_trajectory=False)
-
     '''
     Alle Environments bekommen den gleichen State, damit hinterher Transfer Learning angewendet werden kann.
     '''
 
-    action_space = spaces.Box( low = np.array([-1., -1.]),
-                              high = np.array([ 1.,  1.]) )
-    observation_space = spaces.Box( low = np.array([0., -math.pi, -math.inf, -math.inf, -math.inf, -math.inf, -math.inf, 
-                                           -math.inf, -math.inf, -math.inf, -math.inf, -math.inf, -math.inf, -math.inf, -1, -1]),
-                                    high = np.array([2.0 * math.pi,  math.pi, -math.inf, -math.inf, -math.inf, -math.inf, -math.inf,
-                                            -math.inf, -math.inf, -math.inf, -math.inf, -math.inf, -math.inf, -math.inf, 1, 1]) )
+    action_space = spaces.Box( low = -1., high = 1., shape=(3,), dtype=np.float32)
+    observation_space = spaces.Box( low = -math.inf, high = math.inf, shape=(17,), dtype=np.float32)
 
     def _get_state(self):
-        state = np.array([self.sim.sim['attitude/psi-rad'],
-                        self.sim.sim['attitude/roll-rad'],
+        wind = self.sim.get_wind()
+        state = np.array([#self.sim.sim['attitude/psi-rad'],
+                        #self.sim.sim['attitude/roll-rad'],
                         self.sim.sim['velocities/p-rad_sec'],
                         self.sim.sim['velocities/q-rad_sec'],
                         self.sim.sim['velocities/r-rad_sec'],
@@ -62,7 +42,10 @@ class JSBSimEnv_v0(AbstractJSBSimEnv):
                         self.speed[1],
                         self.speed[2],
                         self.goal_orientation[0],
-                        self.goal_orientation[1]
+                        self.goal_orientation[1],
+                        wind[0],
+                        wind[1],
+                        wind[2],
                         ])
         if not np.isfinite(state).all():
             logging.error('Infinite number detected in state. Replacing with zero')
@@ -74,13 +57,6 @@ class JSBSimEnv_v0(AbstractJSBSimEnv):
             raise ValueError()
         return state
 
-    def reset(self):
-        self.goal_orientation = np.zeros(2)
-        while np.linalg.norm(self.goal_orientation) ==0: 
-            self.goal_orientation = np.random.uniform(-1., 1., 2)
-        self.goal_orientation = self.goal_orientation / np.linalg.norm(self.goal_orientation) 
-        return super().reset()
-
     def _checkFinalConditions(self):
         if np.linalg.norm(self.goal[0:2] - self.pos[0:2])<500:
             logging.debug('Arrived at Target')
@@ -88,9 +64,9 @@ class JSBSimEnv_v0(AbstractJSBSimEnv):
         elif self.pos[2]<self.goal[2]-10:
             logging.debug('   Too low: ',self.pos[2],' < ',self.goal[2]-10)
             self.terminal_condition = TerminationCondition.LowerThanTarget
-        elif self.pos[2]<=self.terrain.altitude(self.pos[0], self.pos[1])+ self.min_distance_terrain:
+        elif self.pos[2]<=self.terrain.altitude(self.pos[0], self.pos[1])+ self.config.min_distance_terrain:
             logging.debug('   Terrain: {:.1f} <= {:.1f}+{:.1f}'.format(self.pos[2],
-                    self.terrain.altitude(self.pos[0], self.pos[1]), self.min_distance_terrain))
+                    self.terrain.altitude(self.pos[0], self.pos[1]), self.config.min_distance_terrain))
             self.terminal_condition = TerminationCondition.HitTerrain
         else: self.terminal_condition = TerminationCondition.NotFinal
         return self.terminal_condition
@@ -116,6 +92,7 @@ class JSBSimEnv_v0(AbstractJSBSimEnv):
 
 
 class JSBSimEnv_v1(JSBSimEnv_v0): 
+
     '''
     In diesem Env ist der Reward abhängig davon, wie nahe der Agent dem Ziel gekommen ist und in welchem Winkel zum Ziel die Ankunft erfolgte.
     Die Anflughöhe wird nicht bewertet.
@@ -202,7 +179,13 @@ class JSBSimEnv_v3(JSBSimEnv_v1):
             if energy == 0:
                 rew = 0
             else:
-                rew = - dist_target / energy * 29.10
+                rew = - abs(dist_target / energy * 29.10)
+            if energy < 0:
+                logging.error('Negative Energy! pos={} speed={} e={}'.format(self.pos, self.speed, energy))
+                exit()
+            if dist_target < 0:
+                logging.error('Negative Distance! pos={} goal={} dist={}'.format(self.pos, self.goal, dist_target))
+                exit()
         elif self.terminal_condition == TerminationCondition.Arrived: 
             rew = 10. - abs(angle_between(self.goal_orientation[0:2], self.speed[0:2])/np.math.pi*5)
         else:
@@ -250,10 +233,43 @@ class JSBSimEnv_v5(JSBSimEnv_v2):
     Der Anflugwinkel am Ziel spielt keine Rolle.
     '''
     
+    # observation_space = spaces.Box( low = np.array([0., -math.pi,  -2 * math.pi, -2 * math.pi, -2 * math.pi, -math.inf, -math.inf, 
+    #                                        -math.inf, -math.inf, -math.inf, -math.inf, -math.inf, -math.inf, -math.inf]),
+    #                                 high = np.array([2.0 * math.pi,  math.pi,  2 * math.pi, 2 * math.pi, 2 * math.pi, math.inf, math.inf,
+    #                                         math.inf, math.inf, math.inf, math.inf, math.inf, math.inf, math.inf]) )
+    # def _get_state(self):
+    #     state = np.array([self.sim.sim['attitude/psi-rad'],
+    #                     self.sim.sim['attitude/roll-rad'],
+    #                     self.sim.sim['velocities/p-rad_sec'],
+    #                     self.sim.sim['velocities/q-rad_sec'],
+    #                     self.sim.sim['velocities/r-rad_sec'],
+    #                     self.pos[0],
+    #                     self.pos[1],
+    #                     self.pos[2],
+    #                     self.goal[0],
+    #                     self.goal[1],
+    #                     self.goal[2],
+    #                     self.speed[0],
+    #                     self.speed[1],
+    #                     self.speed[2],
+    #                     #self.goal_orientation[0],
+    #                     #self.goal_orientation[1]
+    #                     ])
+    #     if not np.isfinite(state).all():
+    #         logging.error('Infinite number detected in state. Replacing with zero')
+    #         logging.error('State: {}'.format(state))
+    #         state = np.nan_to_num(state, neginf=0, posinf=0)
+    #     state = self.stateNormalizer.normalize(state)
+    #     if not np.isfinite(state).all():
+    #         logging.error('Infinite number after Normalization!')    
+    #         raise ValueError()
+    #     return state
+        
+
     def _checkFinalConditions(self):
-        if self.pos[2]<=self.terrain.altitude(self.pos[0], self.pos[1])+ self.min_distance_terrain:
+        if self.pos[2]<=self.terrain.altitude(self.pos[0], self.pos[1])+ self.config.min_distance_terrain:
             logging.debug('   Terrain: {:.1f} <= {:.1f}+{:.1f}'.format(self.pos[2],
-                    self.terrain.altitude(self.pos[0], self.pos[1]), self.min_distance_terrain))
+                    self.terrain.altitude(self.pos[0], self.pos[1]), self.config.min_distance_terrain))
             self.terminal_condition = TerminationCondition.HitTerrain
         else: self.terminal_condition = TerminationCondition.NotFinal
         if self.terminal_condition != TerminationCondition.NotFinal \
@@ -288,3 +304,52 @@ class JSBSimEnv_v6(JSBSimEnv_v5):
             logging.error('State: {} reward: {}'.format(self._get_state(), rew))
             rew = np.nan_to_num(rew, neginf=0, posinf=0)
         return rew  
+
+register(
+    id='JSBSim-v0',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v0',
+    max_episode_steps=999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSim-v1',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v1',
+    max_episode_steps=999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSim-v2',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v2',
+    max_episode_steps=999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSim-v3',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v3',
+    max_episode_steps=999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSim-v4',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v4',
+    max_episode_steps=999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSim-v5',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5',
+    max_episode_steps=999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSim-v6',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v6',
+    max_episode_steps=999,
+    reward_threshold=1000.0,
+)

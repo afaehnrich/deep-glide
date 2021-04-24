@@ -2,10 +2,11 @@ from abc import abstractclassmethod, abstractmethod
 from deep_glide.utils import elevation_asc2hgt
 import jsbsim
 import os
-from typing import Dict
+from typing import Dict, List
 import time
 import numpy as np
 from array import array
+import random
 
 
 class Sim():
@@ -147,6 +148,8 @@ class Sim():
 
 class TerrainClass:
     
+    map_offset: List = None
+
     @abstractmethod
     def define_map_for_plotting(self, xrange, yrange):
         pass
@@ -156,14 +159,22 @@ class TerrainClass:
         pass
 
     @abstractmethod
-    def map_window(self, x, y, width, height):
+    def map_around_position(self, x, y, width, height):
         pass
 
+    @abstractmethod
+    def get_map(self, p1, p2):
+        pass
+
+    @abstractmethod
+    def pixel_from_coordinate(self, point):
+        pass
+  
 
 class TerrainClass30m(TerrainClass):
     row_length = 3601
     resolution = 30 # in m
-    filename = '../SRTM/30m/N46E008.hgt' # Schweiz
+    filename = 'SRTM/30m/N46E008.hgt' # Schweiz
     
     def __init__(self):
         path = os.path.dirname(os.path.realpath(__file__))
@@ -190,23 +201,38 @@ class TerrainClass30m(TerrainClass):
                            self.map_offset[1]+self.yrange[0]:self.map_offset[1]+self.yrange[1]]
         
     def altitude(self, x,y):
-        id_x = int(round(x / self.resolution)) + self.map_offset[0]
-        id_y = int(round(y / self.resolution)) + self.map_offset[1]
+        off_x, off_y = self.map_offset
+        id_x = int(round(x / self.resolution)) + off_x
+        id_y = int(round(y / self.resolution)) + off_y
         if id_x >= self.data.shape[0] or id_y >= self.data.shape[1] or id_x < 0 or id_y < 0:
             return 0
         return self.data[id_x, id_y]
 
-    def map_window(self, x, y, width, height):
-        x_low = int(round(x / self.resolution)) + self.map_offset[0] - width//2 
-        y_low = int(round(y / self.resolution)) + self.map_offset[1] - height//2 
+    def pixel_from_coordinate(self, point):
+        x, y = point
+        id_x = int(round(x / self.resolution)) + self.map_offset[0]
+        id_y = int(round(y / self.resolution)) + self.map_offset[1]
+        return id_x, id_y
+
+    def map_around_position(self, x, y, width, height):
+        off_x, off_y = self.map_offset
+        x_low = int(round(x / self.resolution)) + off_x - width//2 
+        y_low = int(round(y / self.resolution)) + off_y - height//2 
         # print('y: [{}, {}]   y: [{}, {}]'.format(y_low,y_low+height, x_low,x_low+width))
         # exit()
         return self.data[x_low: x_low+width, y_low:y_low+height]
 
+    def get_map(self, p1, p2):
+        x1, y1 = self.pixel_from_coordinate(p1)
+        x2, y2 = self.pixel_from_coordinate(p2)
+        return self.data[x1: x2, y1:y2]
+
+    
+
 class TerrainClass90m(TerrainClass30m):
     row_length = 6000
     resolution = 90 # in m
-    filename = '../SRTM/90m/srtm_38_03.hgt'
+    filename = 'SRTM/90m/srtm_38_03.hgt'
 
     # def __init__(self):
     #     super().__init__()
@@ -225,9 +251,54 @@ class TerrainClass90m(TerrainClass30m):
     #     exit()
 
 
+class TerrainBlockworld(TerrainClass90m):
+    row_length = 6000
+    resolution = 90 # in m
+    
+    def __init__(self):
+        self.data = np.zeros((self.row_length,self.row_length))   
+        self.map_offset =  [self.row_length//2, self.row_length//2]
+        self.create_blocks(100000, 100000)
+    
+    block_dims = np.array([[30, 10],
+                           [60, 10],
+                           [90, 10],
+                           [10, 30],
+                           [10, 60],
+                           [10, 90]])
+    block_heights = [500., 1000., 2000., 4000.]
+    block_spacings = np.array([[1,1]])
+
+    def create_blocks(self, n_blocks, n_tries):
+        created = 0
+        tried = 0
+        random.seed()
+        while created < n_blocks and tried < n_tries:
+            print(created, tried, end='\r')
+            tried +=1
+            block_spacing = random.choice(self.block_spacings)
+            block_dim = random.choice(self.block_dims)
+            spacex, spacey = block_spacing
+            minx = spacex
+            miny = spacey
+            maxx, maxy = np.array(self.data.shape) - block_spacing - block_dim            
+            p1 = np.array([np.random.randint(minx, maxx), np.random.randint(miny, maxy)])
+            p2 = p1 + block_dim
+            x1, y1 = p1
+            x2, y2 = p2
+            p1_check = p1 - block_spacing
+            p2_check = p2 + block_spacing
+            x1c, y1c = p1_check
+            x2c, y2c = p2_check
+            if not self.data[x1c:x2c, y1c:y2c].any():
+                self.data[x1:x2, y1:y2].fill(random.choice(self.block_heights))
+                created +=1
+
+
 class TerrainOcean(TerrainClass90m):
     def __init__(self):
-        self.data = np.zeros((self.row_length,self.row_length)) 
+        self.data = np.zeros((self.row_length,self.row_length))
+        self.map_offset =  [self.row_length//2, self.row_length//2]
 
     def altitude(self, x, y):
         return 0.
