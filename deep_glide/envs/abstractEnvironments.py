@@ -59,7 +59,7 @@ class AbstractJSBSimEnv(gym.Env, ABC):
     goal_orientation: np.array # = np.array([0.,0.])
 
     trajectory=[]
-    stateNormalizer = Normalizer()
+    stateNormalizer: Normalizer
 
     flightRenderer3D = None
     

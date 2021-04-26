@@ -26,7 +26,7 @@ from datetime import datetime
 
 class RL_train:
 
-    simHandler =  JSBSimEnv_v0() #JSBSimEnv2D_v0()
+    simHandler =  JSBSimEnv2D_v0() #JSBSimEnv2D_v0()
     BATCH_SIZE = 128
  
     def init_rl_agents(self, action_space, obs_space, load_models):

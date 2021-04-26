@@ -163,7 +163,7 @@ class TerrainClass:
         pass
 
     @abstractmethod
-    def map_around_position(self, x, y, width, height):
+    def map_around_position(self, x_m, y_m, width_px, height_px) -> np.array:
         pass
 
     @abstractmethod
@@ -220,11 +220,11 @@ class TerrainClass30m(TerrainClass):
         id_y = int(round(y / self.resolution)) + self.map_offset[1]
         return id_x, id_y
 
-    def map_around_position(self, x, y, width, height):
+    def map_around_position(self, x_m, y_m, width_px, height_px):
         off_x, off_y = self.map_offset
-        x_low = int(round(x / self.resolution)) + off_x - width//2 
-        y_low = int(round(y / self.resolution)) + off_y - height//2 
-        return self.data[x_low: x_low+width, y_low:y_low+height]
+        x_low = int(round(x_m / self.resolution)) + off_x - width_px//2 
+        y_low = int(round(y_m / self.resolution)) + off_y - height_px//2 
+        return self.data[x_low: x_low+width_px, y_low:y_low+height_px]
 
     def get_map(self, p1, p2):
         x1, y1 = self.pixel_from_coordinate(p1)

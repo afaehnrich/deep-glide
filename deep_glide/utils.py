@@ -31,32 +31,57 @@ def limit_angle( angle, max_angle):
     return (angle + half ) % max_angle - half
 
 class Normalizer:
-    mean = 1.
-    variance = 1.
-    squaresum = 1.
-    std = 1.
-    n = 1.
-    epsion = 0.0001
+    save_count = 0
+    n_samples = 0
+    count =1
+    mean = 1
+    M2 = 1
 
-    def add_sample(self,x):
-        self.mean = self.mean*self.n
-        self.variance = self.variance * self.n
-        self.n +=1.
-        self.mean = (self.mean +x)/self.n
-        self.mean = np.nan_to_num(self.mean, neginf=0, posinf=0)          
-        self.squaresum += x**2
-        self.squaresum = np.nan_to_num(self.squaresum, neginf=0, posinf=0)
-        self.variance = 1/(self.n)*self.squaresum - self.mean**2        
-        self.variance = np.nan_to_num(self.variance, neginf=0, posinf=0)
-        self.std = np.sqrt(self.variance)
-        self.std = np.nan_to_num(self.std, neginf=0, posinf=0)
-        if self.n % 50000 == 0:
-            with open('normalizer.txt', 'a') as file: 
-                file.write('n_step={}\r\nMean={}\r\nStd={}\r\n\r\n'.format(self.n, self.mean, self.std))        
+    def __init__(self, simName, save_interval=50000):
+        self.simName = simName
+        self.save_interval = save_interval
+
+    # https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
+    # For a new value newValue, compute the new count, new mean, the new M2.
+    # mean accumulates the mean of the entire dataset
+    # M2 aggregates the squared distance from the mean
+    # count aggregates the number of samples seen so far
+    def add_batch(self, newValues: np.array):
+        if not np.isfinite(newValues).all(): return
+        valCount = newValues.shape[0]
+        valSum = newValues.sum(axis =0)
+        self.count += valCount
+        delta = valSum - self.mean * valCount
+        delta = np.nan_to_num(delta, neginf=0, posinf=0)
+        self.mean += delta / self.count
+        self.mean = np.nan_to_num(self.mean, neginf=0, posinf=0)
+        delta2 = valSum  - self.mean *valCount
+        delta2 = np.nan_to_num(delta2, neginf=0, posinf=0)
+        self.M2 += delta * delta2
+        self.M2 = np.nan_to_num(self.M2, neginf=0, posinf=0)
+
+    def save_state(self):
+        with open('{}_normalizer.txt'.format(self.simName), 'a') as file: 
+            file.write('n_samples={}:\r\n  count={}\r\n  nmean={}\r\n  M2={}\r\n\r\n'.format(self.n_samples, self.count, self.mean, self.M2))        
 
     def normalize(self, x, add_sample=True):
-        if add_sample: self.add_sample(x)
-        return (x - self.mean) / np.sqrt(self.std**2+0.00001)
+        if add_sample: 
+            self.add_batch(x)
+            self.save_count += x.shape[0]
+            self.n_samples += x.shape[0]
+            if self.save_count >= self.save_interval:
+                self.save_state()            
+                self.save_count -= self.save_interval
+        variance = self.M2 / self.count
+        std = np.sqrt(variance)
+        return (x - self.mean) / np.sqrt(std**2+0.00001)
+
+class Normalizer2D(Normalizer):
+    # All pixels are threated equal
+    def add_batch(self, newValues: np.array):
+        xdim, ydim, zdim = newValues.shape            
+        super().add_batch(newValues.view().reshape(xdim*ydim*zdim,1))
+
 
 def elevation_asc2hgt(filename_asc, filename_hgt):
     path = os.path.dirname(os.path.realpath(__file__))

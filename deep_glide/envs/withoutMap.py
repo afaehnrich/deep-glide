@@ -1,6 +1,7 @@
 import numpy as np
 from deep_glide.sim import Sim, SimState, TerrainClass, TerrainOcean
 from deep_glide.envs.abstractEnvironments import AbstractJSBSimEnv, TerminationCondition
+from deep_glide.utils import Normalizer
 from gym.envs.registration import register
 
 import logging
@@ -17,6 +18,7 @@ class JSBSimEnv_v0(AbstractJSBSimEnv):
     metadata = {'render.modes': ['human']}
 
     terrain: TerrainClass = TerrainOcean()
+    stateNormalizer = Normalizer('JsbSimEnv_v0')
 
     '''
     Alle Environments bekommen den gleichen State, damit hinterher Transfer Learning angewendet werden kann.
@@ -24,6 +26,20 @@ class JSBSimEnv_v0(AbstractJSBSimEnv):
 
     action_space = spaces.Box( low = -1., high = 1., shape=(3,), dtype=np.float32)
     observation_space = spaces.Box( low = -math.inf, high = math.inf, shape=(17,), dtype=np.float32)
+
+    def __init__(self):
+        super().__init__()
+        self.stateNormalizer.count=350000
+        self.stateNormalizer.mean=[ 2.97364472e-03,  1.10485485e-02, -1.76071912e-04,  3.13598366e+02,
+                                    1.63658909e+02,  1.34970980e+03, -7.85394264e+01, -3.04544640e+01,
+                                    9.99997171e+01, -2.77013138e-01,  3.79266207e-01, -1.28894164e+01,
+                                    -6.26786425e-03,  6.33990049e-03,  2.85714286e-06,  2.85714286e-06,
+                                    2.85714286e-06]
+        self.stateNormalizer.M2=[2.62146647e+03, 9.82602879e+02, 6.72278526e+02, 7.06071626e+12,
+                                7.77554241e+12, 2.80579783e+11, 2.88355302e+12, 2.94527236e+12,
+                                9.80197200e+03, 2.07188799e+09, 2.18822997e+09, 3.63861497e+07,
+                                1.73373913e+05, 1.76601269e+05, 1.99999714e+00, 1.99999714e+00,
+                                1.99999714e+00]
 
     def _get_state(self):
         wind = self.sim.get_wind()
@@ -51,11 +67,12 @@ class JSBSimEnv_v0(AbstractJSBSimEnv):
             logging.error('Infinite number detected in state. Replacing with zero')
             logging.error('State: {}'.format(state))
             state = np.nan_to_num(state, neginf=0, posinf=0)
-        state = self.stateNormalizer.normalize(state)
+        state = self.stateNormalizer.normalize(state.view().reshape(1,17))
         if not np.isfinite(state).all():
             logging.error('Infinite number after Normalization!')    
             raise ValueError()
         return state
+
 
     def _checkFinalConditions(self):
         if np.linalg.norm(self.goal[0:2] - self.pos[0:2])<500:
@@ -93,6 +110,8 @@ class JSBSimEnv_v0(AbstractJSBSimEnv):
 
 class JSBSimEnv_v1(JSBSimEnv_v0): 
 
+    stateNormalizer = Normalizer('JsbSimEnv_v1')
+
     '''
     In diesem Env ist der Reward abhängig davon, wie nahe der Agent dem Ziel gekommen ist und in welchem Winkel zum Ziel die Ankunft erfolgte.
     Die Anflughöhe wird nicht bewertet.
@@ -121,6 +140,9 @@ class JSBSimEnv_v1(JSBSimEnv_v0):
         return rew
 
 class JSBSimEnv_v2(JSBSimEnv_v1): 
+
+    stateNormalizer = Normalizer('JsbSimEnv_v2')
+
     '''
     In diesem Env ist der Reward abhängig davon, wie nahe der Agent dem Ziel gekommen ist.
     Im Unterschied zu v0 wird als Zwischen-Reward jedoch nicht die Abweichung Flugwinkel - Winkel zum Ziel bewertet,
@@ -159,6 +181,9 @@ class JSBSimEnv_v2(JSBSimEnv_v1):
         return rew  
 
 class JSBSimEnv_v3(JSBSimEnv_v1): 
+
+    stateNormalizer = Normalizer('JsbSimEnv_v3')
+
     '''
     In diesem Env ist der Reward abhängig davon, wie nahe der Agent dem Ziel gekommen ist.
     Im Unterschied zu v0 wird als Zwischen-Reward jedoch nicht die Abweichung Flugwinkel - Winkel zum Ziel bewertet,
@@ -198,8 +223,11 @@ class JSBSimEnv_v3(JSBSimEnv_v1):
         return rew  
 
 class JSBSimEnv_v4(JSBSimEnv_v3): 
+
+    stateNormalizer = Normalizer('JsbSimEnv_v4')
+
     '''
-    Wei v3, aber mit leicht geändertem final reward
+    Wie v3, aber mit leicht geändertem final reward
     '''
        
     def _reward(self):
@@ -225,6 +253,9 @@ class JSBSimEnv_v4(JSBSimEnv_v3):
 
 
 class JSBSimEnv_v5(JSBSimEnv_v2): 
+
+    stateNormalizer = Normalizer('JsbSimEnv_v5')
+
     '''
     In diesem Env ist der Reward abhängig davon, wie nahe der Agent dem Ziel gekommen ist.
     Der negative reward ist dabei abhängig vom Energieverlust im Verhältnis zur Entfernung zum Ziel (siehe v2).
@@ -279,6 +310,9 @@ class JSBSimEnv_v5(JSBSimEnv_v2):
         return self.terminal_condition
 
 class JSBSimEnv_v6(JSBSimEnv_v5):
+
+    stateNormalizer = Normalizer('JsbSimEnv_v6')
+
     '''
     Dieses Env kombiniert v5 (Reward nur, wenn am Boden angekommen) 
     mit v4 (Final reward abhängig vom Anflugwinkel)

@@ -1,17 +1,24 @@
-from deep_glide.envs.withoutMap import JSBSimEnv_v1
+from deep_glide.envs.withoutMap import JSBSimEnv_v0
 import numpy as np
 from deep_glide.sim import Sim, SimState, TerrainClass, TerrainOcean
 from deep_glide.envs.abstractEnvironments import AbstractJSBSimEnv, TerminationCondition
 from deep_glide.deprecated.properties import Properties, PropertylistToBox
+from deep_glide.utils import Normalizer, Normalizer2D
 from gym.envs.registration import register
 
 import logging
 from deep_glide.utils import angle_between
 from gym import spaces 
 from matplotlib import pyplot as plt
+import math
 
 
-class JSBSimEnv2D_v0(JSBSimEnv_v1): 
+class JSBSimEnv2D_v0(JSBSimEnv_v0): 
+
+    stateNormalizer = Normalizer('JsbSimEnv2D_v0')
+    mapNormalizer = Normalizer2D('JsbSimEnv2D_v0_map')
+
+
     '''
     In diesem Env ist der Reward abhängig davon, wie nahe der Agent dem Ziel gekommen ist. 
     Höhe und Anflugwinkel sind nicht entscheidend.
@@ -19,46 +26,18 @@ class JSBSimEnv2D_v0(JSBSimEnv_v1):
 
     metadata = {'render.modes': ['human']}
 
-    OBS_WIDTH = 96
-    OBS_HEIGHT = 96
+    OBS_WIDTH = 32
+    OBS_HEIGHT = 32
     z_range = (1000, 1500)
 
-    terrain: TerrainClass = TerrainClass()
+    terrain: TerrainClass = TerrainOcean()
+    observation_space = spaces.Box( low = -math.inf, high = math.inf, shape=(17+OBS_HEIGHT*OBS_WIDTH,), dtype=np.float32)
 
-    action_props = [Properties.custom_dir_x,
-                    Properties.custom_dir_y]
-    #               ,rl_wrapper.properties.Properties.custom_dir_z]
 
-    def __init__(self):
-        super().__init__()
-        self.observation_space = spaces.Box(
-            low=-np.inf, high=np.inf, shape=(self.OBS_HEIGHT, self.OBS_WIDTH)
-        )
-
-    plot_fig: plt.figure = None
-
-    def render(self):
-        super().render()
-        if self.plot_fig is None:
-            self.plot_fig = plt.figure('render 2D')
-            plt.ion()
-            plt.show()
-        plt.figure(self.plot_fig.number)
-        img = self.terrain.map_around_position(self.pos[0], self.pos[1], self.OBS_WIDTH, self.OBS_HEIGHT).copy()
-        img = self.terrain.map_around_position(self.pos[0], self.pos[1], 333, 333).copy()
-        from scipy import ndimage
-        img = ndimage.rotate(img, 90)
-        plt.clf()
-        plt.imshow(img, cmap='gist_earth', vmin=-1000, vmax = 4000)
-
-    '''
-    Hier wird getestet, ob der RL-Agent auch mit einem 2D-Input klarkommt.
-    self.terrain.map_window gibt die Höhendaten rund um die aktuelle Position zurück. 
-    Da hier TerrainOcean als Map verwendet wird, sollte dies eine leeres Array sein.
-    '''
     def _get_state(self):
-        state_float = np.array([self.sim.sim['attitude/psi-rad'],
-                        self.sim.sim['attitude/roll-rad'],
+        wind = self.sim.get_wind()
+        state = np.array([#self.sim.sim['attitude/psi-rad'],
+                        #self.sim.sim['attitude/roll-rad'],
                         self.sim.sim['velocities/p-rad_sec'],
                         self.sim.sim['velocities/q-rad_sec'],
                         self.sim.sim['velocities/r-rad_sec'],
@@ -71,15 +50,41 @@ class JSBSimEnv2D_v0(JSBSimEnv_v1):
                         self.speed[0],
                         self.speed[1],
                         self.speed[2],
-                        self.goal_dir[0],
-                        self.goal_dir[1]
+                        self.goal_orientation[0],
+                        self.goal_orientation[1],
+                        wind[0],
+                        wind[1],
+                        wind[2],
                         ])
-        # state_float = np.kron(state_float, np.ones((HUD_DIM, HUD_DIM))) # konvert to 2D-"HUD"
-        state = self.terrain.map_around_position(self.pos[0], self.pos[1], self.OBS_WIDTH, self.OBS_HEIGHT).copy()
-        state = state.reshape((self.OBS_HEIGHT * self.OBS_WIDTH,))
-        state[0:state_float.shape[0]]=state_float # die Flugparameter in die letzte Zeile einfügen
-        state = self.stateNormalizer.normalize(state)
+        map = self.terrain.map_around_position(self.pos[0], self.pos[1], self.OBS_WIDTH, self.OBS_HEIGHT).copy()
+        map = self.mapNormalizer.normalize(map.view().reshape(1,self.OBS_WIDTH,self.OBS_HEIGHT))
+        if not np.isfinite(state).all():
+            logging.error('Infinite number detected in state. Replacing with zero')
+            logging.error('State: {}'.format(state))
+            state = np.nan_to_num(state, neginf=0, posinf=0)
+        state = self.stateNormalizer.normalize(state.view().reshape(1,17))
+        if not np.isfinite(state).all():
+            logging.error('Infinite number after Normalization!')    
+            raise ValueError()
+        state = np.concatenate((map.flatten(), state.flatten()))
         return state
+
+
+    plot_fig: plt.figure = None
+
+    # def render(self):
+    #     super().render()
+    #     if self.plot_fig is None:
+    #         self.plot_fig = plt.figure('render 2D')
+    #         plt.ion()
+    #         plt.show()
+    #     plt.figure(self.plot_fig.number)
+    #     img = self.terrain.map_around_position(self.pos[0], self.pos[1], self.OBS_WIDTH, self.OBS_HEIGHT).copy()
+    #     from scipy import ndimage
+    #     img = ndimage.rotate(img, 90)
+    #     plt.clf()
+    #     plt.imshow(img, cmap='gist_earth', vmin=-1000, vmax = 4000)
+
 
     # def _checkFinalConditions(self):
     #     if np.linalg.norm(self.goal[0:2] - self.pos[0:2])<500:
