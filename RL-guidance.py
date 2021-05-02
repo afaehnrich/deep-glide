@@ -9,7 +9,7 @@ import numpy as np
 
 from deep_glide.pid import PID_angle, PID
 from deep_glide.sim import Sim,  SimState, TerrainClass, TerrainOcean, SimTimer, TerrainClass90m, TerrainClass30m, TerrainBlockworld
-from deep_glide.envs.withoutMap import JSBSimEnv_v0, JSBSimEnv_v1, JSBSimEnv_v2, JSBSimEnv_v4, JSBSimEnv_v5
+from deep_glide.envs.withoutMap import JSBSimEnv_v0, JSBSimEnv_v1, JSBSimEnv_v2, JSBSimEnv_v4, JSBSimEnv_v5, JSBSimEnv_v6,JSBSimEnv_v8
 from deep_glide.envs.withMap import JSBSimEnv2D_v0
 from typing import Dict, List, Tuple
 from array import array
@@ -26,9 +26,9 @@ from datetime import datetime
 
 class RL_train:
 
-    simHandler =  JSBSimEnv2D_v0() #JSBSimEnv2D_v0()
+    simHandler =  JSBSimEnv_v6() #JSBSimEnv2D_v0()
     BATCH_SIZE = 128
- 
+
     def init_rl_agents(self, action_space, obs_space, load_models):
         if torch.cuda.is_available():
             self.device = torch.device("cuda")
@@ -48,7 +48,7 @@ class RL_train:
                  goal_sample_rate, search_radius, 
                  iter_max, number_neighbors, number_neighbors_goal):
         self.st_start = st_start
-        self.simHandler.terrain = TerrainBlockworld()
+        #self.simHandler.terrain = TerrainBlockworld()        
         # ein import von mayavi für das Gesamtprojekt zerstört die JSBSim-Simulation. 
         # Flugrouten werden dann nicht mehr korrekt berechnet - warum auch immer.
         # Deshalb nur lokaler Import.
@@ -129,15 +129,15 @@ class RL_train:
                 new_state, reward, done, _ = self.simHandler.step(action)
                 state = new_state
                 rewards.append(reward)            
+                if render: self.simHandler.render()
                 if done: break            
-            time2 = datetime.now()
-            if render: self.simHandler.render()
+            time2 = datetime.now()            
             total_reward = np.sum(rewards)
             print('Episode ', episode,': reward min={:.2f} max={:.2f}, mean={:.2f}, med={:.2f} total={:.2f}  episode_len={} time={:.1f}s'.format(np.min(rewards), 
                     np.max(rewards), np.average(rewards), np.median(rewards), total_reward, step, (time2-time1).total_seconds()))                    
             self.plot_reward(episode, total_reward/max_steps)
             # print('Start: {} Goal: {}'.format(self.simHandler.start, self.simHandler.goal))
-            # input()
+            #input()
             #GUI().process_events()
         print('Fertig')
         self.simHandler.save_rl_agents()
@@ -226,9 +226,9 @@ def main():
     
     rl_trainer = RL_train(state_start, x_goal, step_len = 3000, goal_sample_rate = 0.10, search_radius = 1000, 
                         iter_max = 500, number_neighbors = 10, number_neighbors_goal = 50)
-    # rl_trainer.guidance_perfect() # Funktioniert nicht mit normalisierten States!
+    rl_trainer.guidance_perfect( render=True) # Funktioniert nicht mit normalisierten States!
     # rl_trainer.height()
-    rl_trainer.guidance_random( render=True)
+    #rl_trainer.guidance_random( render=True)
     # rl_trainer.show_map()
     # rl_trainer.guidance()
 

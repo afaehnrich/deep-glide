@@ -247,16 +247,16 @@ class TerrainBlockworld(TerrainClass90m):
             super().__init__()        
         self.blocks = np.zeros((self.row_length,self.row_length))   
         self.map_offset =  [self.row_length//2, self.row_length//2]
-        self.create_blocks(10000, False, 100000)
-        self.create_blocks(5000, True)
+        self.create_blocks(50000, False, 100000)
+        self.create_blocks(25000, True)
 
-    block_dimensions = np.array([[30, 10],
-                           [60, 10],
-                           [90, 10],
-                           [10, 30],
-                           [10, 60],
-                           [10, 90]])
-    block_heights = [500., 1000., 2000., 4000.]
+    block_dimensions = np.array([[5, 4],
+                                [10, 4],
+                                [15, 4],
+                                [4, 5],
+                                [4, 10],
+                                [4, 15]])
+    block_heights = [8000.] #[500., 1000., 2000., 4000.]
     block_spacings = np.array([[10,10]])
 
     def create_blocks(self, n_blocks, allow_overlap=False, n_tries=0):

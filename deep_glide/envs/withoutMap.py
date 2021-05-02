@@ -1,15 +1,20 @@
+from enum import auto
 import numpy as np
-from deep_glide.sim import Sim, SimState, TerrainClass, TerrainOcean
+from deep_glide.sim import Sim, SimState, TerrainBlockworld, TerrainClass, TerrainOcean
 from deep_glide.envs.abstractEnvironments import AbstractJSBSimEnv, TerminationCondition
-from deep_glide.utils import Normalizer
+from deep_glide.utils import Normalizer, ensure_dir, angle_between
 from gym.envs.registration import register
 
 import logging
-from deep_glide.utils import angle_between
 from gym import spaces 
 import math
+from matplotlib import pyplot as plt
+from scipy.interpolate import UnivariateSpline
+import os
+from datetime import date
 
-class JSBSimEnv_v0(AbstractJSBSimEnv): 
+class JSBSimEnv_v0(AbstractJSBSimEnv):
+    env_name = 'JSBSim-v0'
     '''
     In diesem Env ist der Reward abhängig davon, wie nahe der Agent dem Ziel gekommen ist. 
     Höhe und Anflugwinkel sind nicht entscheidend.
@@ -17,62 +22,78 @@ class JSBSimEnv_v0(AbstractJSBSimEnv):
 
     metadata = {'render.modes': ['human']}
 
-    terrain: TerrainClass = TerrainOcean()
-    stateNormalizer = Normalizer('JsbSimEnv_v0')
+    def __init__(self):
+        super().__init__()
+        self.terrain = TerrainOcean()
 
     '''
     Alle Environments bekommen den gleichen State, damit hinterher Transfer Learning angewendet werden kann.
     '''
 
-    action_space = spaces.Box( low = -1., high = 1., shape=(3,), dtype=np.float32)
-    observation_space = spaces.Box( low = -math.inf, high = math.inf, shape=(17,), dtype=np.float32)
-
-    def __init__(self):
-        super().__init__()
-        self.stateNormalizer.count=350000
-        self.stateNormalizer.mean=[ 2.97364472e-03,  1.10485485e-02, -1.76071912e-04,  3.13598366e+02,
-                                    1.63658909e+02,  1.34970980e+03, -7.85394264e+01, -3.04544640e+01,
-                                    9.99997171e+01, -2.77013138e-01,  3.79266207e-01, -1.28894164e+01,
-                                    -6.26786425e-03,  6.33990049e-03,  2.85714286e-06,  2.85714286e-06,
-                                    2.85714286e-06]
-        self.stateNormalizer.M2=[2.62146647e+03, 9.82602879e+02, 6.72278526e+02, 7.06071626e+12,
-                                7.77554241e+12, 2.80579783e+11, 2.88355302e+12, 2.94527236e+12,
-                                9.80197200e+03, 2.07188799e+09, 2.18822997e+09, 3.63861497e+07,
-                                1.73373913e+05, 1.76601269e+05, 1.99999714e+00, 1.99999714e+00,
-                                1.99999714e+00]
-
-    def _get_state(self):
-        wind = self.sim.get_wind()
-        state = np.array([#self.sim.sim['attitude/psi-rad'],
-                        #self.sim.sim['attitude/roll-rad'],
-                        self.sim.sim['velocities/p-rad_sec'],
-                        self.sim.sim['velocities/q-rad_sec'],
-                        self.sim.sim['velocities/r-rad_sec'],
-                        self.pos[0],
-                        self.pos[1],
-                        self.pos[2],
-                        self.goal[0],
-                        self.goal[1],
-                        self.goal[2],
-                        self.speed[0],
-                        self.speed[1],
-                        self.speed[2],
-                        self.goal_orientation[0],
-                        self.goal_orientation[1],
-                        wind[0],
-                        wind[1],
-                        wind[2],
-                        ])
-        if not np.isfinite(state).all():
-            logging.error('Infinite number detected in state. Replacing with zero')
-            logging.error('State: {}'.format(state))
-            state = np.nan_to_num(state, neginf=0, posinf=0)
-        state = self.stateNormalizer.normalize(state.view().reshape(1,17))
-        if not np.isfinite(state).all():
-            logging.error('Infinite number after Normalization!')    
-            raise ValueError()
-        return state
-
+    #===========================================
+    #  Aktivieren, um Normalisierung zu plotten
+    #===========================================
+    # n_steppps=0
+    # state_buffer = []
+    # plot_shown = False
+    # state_names=['p-rad_sec','q-rad_sec','r-rad_sec',
+    #             'pos-z',
+    #             'goal-x', 'goal-y','goal-z',
+    #             'speed-x','speed-y','speed-z',
+    #             'goal_orientation-x','goal_orientation-y',
+    #             'wind-x','wind-y','wind-z']
+    # def _get_state(self):
+    #     wind = self.sim.get_wind()
+    #     state = np.array([self.sim.sim['velocities/p-rad_sec'],
+    #                     self.sim.sim['velocities/q-rad_sec'],
+    #                     self.sim.sim['velocities/r-rad_sec'],                                                
+    #                     self.pos[2],
+    #                     self.goal[0] -self.pos[0],
+    #                     self.goal[1] - self.pos[1],
+    #                     self.goal[2],
+    #                     self.speed[0],
+    #                     self.speed[1],
+    #                     self.speed[2],
+    #                     self.goal_orientation[0],
+    #                     self.goal_orientation[1],
+    #                     wind[0],
+    #                     wind[1],
+    #                     wind[2],
+    #                     ])
+    #     if not np.isfinite(state).all():
+    #         logging.error('Infinite number detected in state. Replacing with zero')
+    #         logging.error('State: {}'.format(state))
+    #         state = np.nan_to_num(state, neginf=0, posinf=0) 
+    #     self.n_steppps +=1
+    #     self.state_buffer.append(state)
+    #     if self.n_steppps % 10000 == 0:
+    #         for i in range(state.shape[0]):
+    #             n=100
+    #             data = np.array([x[i] for x in self.state_buffer])
+    #             p, x = np.histogram(data, bins=n) # bin it into n = N//10 bins
+    #             x = x[:-1] + (x[1] - x[0])/2   # convert bin edges to centers
+    #             plt.figure('Data Distribution {}'.format(self.state_names[i]))
+    #             plt.clf()
+    #             f = UnivariateSpline(x, p, s=n)
+    #             plt.plot(x, f(x))
+    #             f = UnivariateSpline(x, p, s=n//10)
+    #             plt.plot(x, f(x))
+    #             variance = self.stateNormalizer.M2 / self.stateNormalizer.count
+    #             std = np.sqrt(variance)
+    #             plt.xlabel('n steps={} mean={:.4f} std={:.4f}'.format(self.n_steppps, self.stateNormalizer.mean[i], std[i]))
+    #             if not self.plot_shown:
+    #                 plt.ion()
+    #                 plt.show()
+    #                 self.plot_shown = True
+    #             filename =os.path.join(self.config.logdir,self.env_name,'{}_{}_{}_{}.png'.format(
+    #                                     self.env_name, self.start_date, self.state_names[i],self.n_steppps))
+    #             ensure_dir(filename)
+    #             plt.savefig(filename)
+    #         plt.gcf().canvas.draw_idle()
+    #         plt.gcf().canvas.start_event_loop(0.0001)            
+    #     state = self.stateNormalizer.normalize(state.view().reshape((1,15)))
+    #     state = state.view().reshape((15,))        
+    #     return state
 
     def _checkFinalConditions(self):
         if np.linalg.norm(self.goal[0:2] - self.pos[0:2])<500:
@@ -110,7 +131,7 @@ class JSBSimEnv_v0(AbstractJSBSimEnv):
 
 class JSBSimEnv_v1(JSBSimEnv_v0): 
 
-    stateNormalizer = Normalizer('JsbSimEnv_v1')
+    env_name = 'JSBSim-v1'
 
     '''
     In diesem Env ist der Reward abhängig davon, wie nahe der Agent dem Ziel gekommen ist und in welchem Winkel zum Ziel die Ankunft erfolgte.
@@ -141,7 +162,7 @@ class JSBSimEnv_v1(JSBSimEnv_v0):
 
 class JSBSimEnv_v2(JSBSimEnv_v1): 
 
-    stateNormalizer = Normalizer('JsbSimEnv_v2')
+    env_name = 'JSBSim-v2'
 
     '''
     In diesem Env ist der Reward abhängig davon, wie nahe der Agent dem Ziel gekommen ist.
@@ -182,7 +203,7 @@ class JSBSimEnv_v2(JSBSimEnv_v1):
 
 class JSBSimEnv_v3(JSBSimEnv_v1): 
 
-    stateNormalizer = Normalizer('JsbSimEnv_v3')
+    env_name = 'JSBSim-v3'
 
     '''
     In diesem Env ist der Reward abhängig davon, wie nahe der Agent dem Ziel gekommen ist.
@@ -224,7 +245,7 @@ class JSBSimEnv_v3(JSBSimEnv_v1):
 
 class JSBSimEnv_v4(JSBSimEnv_v3): 
 
-    stateNormalizer = Normalizer('JsbSimEnv_v4')
+    env_name = 'JSBSim-v4'
 
     '''
     Wie v3, aber mit leicht geändertem final reward
@@ -254,7 +275,7 @@ class JSBSimEnv_v4(JSBSimEnv_v3):
 
 class JSBSimEnv_v5(JSBSimEnv_v2): 
 
-    stateNormalizer = Normalizer('JsbSimEnv_v5')
+    env_name = 'JSBSim-v5'
 
     '''
     In diesem Env ist der Reward abhängig davon, wie nahe der Agent dem Ziel gekommen ist.
@@ -263,40 +284,9 @@ class JSBSimEnv_v5(JSBSimEnv_v2):
     D.h. hier wird auf jeden Fall gelandet - entweder am Ziel oder im "Gelände"
     Der Anflugwinkel am Ziel spielt keine Rolle.
     '''
-    
-    # observation_space = spaces.Box( low = np.array([0., -math.pi,  -2 * math.pi, -2 * math.pi, -2 * math.pi, -math.inf, -math.inf, 
-    #                                        -math.inf, -math.inf, -math.inf, -math.inf, -math.inf, -math.inf, -math.inf]),
-    #                                 high = np.array([2.0 * math.pi,  math.pi,  2 * math.pi, 2 * math.pi, 2 * math.pi, math.inf, math.inf,
-    #                                         math.inf, math.inf, math.inf, math.inf, math.inf, math.inf, math.inf]) )
-    # def _get_state(self):
-    #     state = np.array([self.sim.sim['attitude/psi-rad'],
-    #                     self.sim.sim['attitude/roll-rad'],
-    #                     self.sim.sim['velocities/p-rad_sec'],
-    #                     self.sim.sim['velocities/q-rad_sec'],
-    #                     self.sim.sim['velocities/r-rad_sec'],
-    #                     self.pos[0],
-    #                     self.pos[1],
-    #                     self.pos[2],
-    #                     self.goal[0],
-    #                     self.goal[1],
-    #                     self.goal[2],
-    #                     self.speed[0],
-    #                     self.speed[1],
-    #                     self.speed[2],
-    #                     #self.goal_orientation[0],
-    #                     #self.goal_orientation[1]
-    #                     ])
-    #     if not np.isfinite(state).all():
-    #         logging.error('Infinite number detected in state. Replacing with zero')
-    #         logging.error('State: {}'.format(state))
-    #         state = np.nan_to_num(state, neginf=0, posinf=0)
-    #     state = self.stateNormalizer.normalize(state)
-    #     if not np.isfinite(state).all():
-    #         logging.error('Infinite number after Normalization!')    
-    #         raise ValueError()
-    #     return state
-        
 
+    RANGE_DIST = 500 # in m | Umkreis um das Ziel in Metern, bei dem es einen positiven Reward gibt
+    
     def _checkFinalConditions(self):
         if self.pos[2]<=self.terrain.altitude(self.pos[0], self.pos[1])+ self.config.min_distance_terrain:
             logging.debug('   Terrain: {:.1f} <= {:.1f}+{:.1f}'.format(self.pos[2],
@@ -304,40 +294,139 @@ class JSBSimEnv_v5(JSBSimEnv_v2):
             self.terminal_condition = TerminationCondition.HitTerrain
         else: self.terminal_condition = TerminationCondition.NotFinal
         if self.terminal_condition != TerminationCondition.NotFinal \
-           and np.linalg.norm(self.goal[0:2] - self.pos[0:2])<500:
+           and np.linalg.norm(self.goal[0:2] - self.pos[0:2])<self.RANGE_DIST:
             logging.debug('Arrived at Target')
             self.terminal_condition = TerminationCondition.Arrived
         return self.terminal_condition
 
-class JSBSimEnv_v6(JSBSimEnv_v5):
-
-    stateNormalizer = Normalizer('JsbSimEnv_v6')
-
-    '''
-    Dieses Env kombiniert v5 (Reward nur, wenn am Boden angekommen) 
-    mit v4 (Final reward abhängig vom Anflugwinkel)
-    '''
-
     def _reward(self):
         self._checkFinalConditions()
         rew = 0
-        if self.terminal_condition == TerminationCondition.NotFinal:
-            dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
+        dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
+        if self.terminal_condition == TerminationCondition.NotFinal:            
             energy = self._get_energy()
             if energy == 0:
                 rew = 0
             else:
                 rew = - dist_target / energy * 29.10
         elif self.terminal_condition == TerminationCondition.Arrived: 
-            rew = 10. - abs(angle_between(self.goal_orientation[0:2], self.speed[0:2])/np.math.pi)*15.
+            rew = (self.RANGE_DIST-dist_target)/self.RANGE_DIST*10
         else:
-            dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
-            rew = -dist_target/3000. - abs(angle_between(self.goal_orientation[0:2], self.speed[0:2])/np.math.pi)*15.
+            rew = -abs((dist_target-self.RANGE_DIST)/3000) 
         if not np.isfinite(rew).all():
             logging.error('Infinite number detected in state. Replacing with zero')
             logging.error('State: {} reward: {}'.format(self._get_state(), rew))
             rew = np.nan_to_num(rew, neginf=0, posinf=0)
         return rew  
+
+class JSBSimEnv_v6(JSBSimEnv_v5):
+
+    env_name = 'JSBSim-v6'
+
+    '''
+    Dieses Env kombiniert v5 (Reward nur, wenn am Boden angekommen) 
+    mit v4 (Final reward abhängig vom Anflugwinkel)
+    '''
+
+    RANGE_DIST = 500 # in m | Umkreis um das Ziel in Metern, bei dem es einen positiven Reward gibt
+    RANGE_ANGLE = math.pi/5 # in rad | Toleranz des Anflugwinkels, bei dem ein positiver Reward gegeben wird
+
+    def _checkFinalConditions(self):
+        if self.pos[2]<=self.terrain.altitude(self.pos[0], self.pos[1])+ self.config.min_distance_terrain:
+            logging.debug('   Terrain: {:.1f} <= {:.1f}+{:.1f}'.format(self.pos[2],
+                    self.terrain.altitude(self.pos[0], self.pos[1]), self.config.min_distance_terrain))
+            self.terminal_condition = TerminationCondition.HitTerrain
+        else: 
+            self.terminal_condition = TerminationCondition.NotFinal
+        if self.terminal_condition != TerminationCondition.NotFinal \
+           and (np.linalg.norm(self.goal[0:2] - self.pos[0:2])<self.RANGE_DIST) \
+           and (abs(angle_between(self.goal_orientation[0:2], self.speed[0:2])) < self.RANGE_ANGLE) :
+            logging.debug('Arrived at Target')
+            self.terminal_condition = TerminationCondition.Arrived
+        return self.terminal_condition
+
+    def _reward(self):
+        self._checkFinalConditions()
+        rew = 0
+        dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
+        if self.terminal_condition == TerminationCondition.NotFinal:
+            energy = self._get_energy()
+            if energy == 0:
+                rew = 0
+            else:
+                rew = - dist_target / energy * 29.10
+        elif self.terminal_condition == TerminationCondition.Arrived: 
+            delta_angle = abs(angle_between(self.goal_orientation[0:2], self.speed[0:2]))
+            rew_dist = (self.RANGE_DIST-dist_target)/self.RANGE_DIST*5
+            rew_angle = (self.RANGE_ANGLE-delta_angle) / self.RANGE_ANGLE * 5
+            rew = rew_angle + rew_dist
+        else:
+            delta_angle = abs(angle_between(self.goal_orientation[0:2], self.speed[0:2]))
+            rew_dist = min(-dist_target-self.RANGE_DIST,0)/3000
+            rew_angle = min(-delta_angle-self.RANGE_ANGLE,0)/math.pi*15.
+            rew = rew_angle + rew_dist
+        if not np.isfinite(rew).all():
+            logging.error('Infinite number detected in state. Replacing with zero')
+            logging.error('State: {} reward: {}'.format(self._get_state(), rew))
+            rew = np.nan_to_num(rew, neginf=0, posinf=0)
+        return rew  
+
+class JSBSimEnv_v7(JSBSimEnv_v0):
+
+    env_name = 'JSBSim-v7'
+    '''
+    Wie JSBSimEnv_v0, aber mit Blockworld-map
+    Hindernisse sind vorhanden, werden aber vom Env nicht erkannt.
+    Hier zeigt sich, ob es einen Unterschied zu JSBSimEnv2D_v0 gibt.
+    '''
+    def __init__(self):
+        super().__init__()
+        self.terrain  = TerrainBlockworld()
+
+class JSBSimEnv_v8(JSBSimEnv_v6):
+
+    env_name = 'JSBSim-v8'
+
+    '''
+    Reward-Funktion ähnlich wie HighwayEnv Parking
+
+    '''
+    REWARD_WEIGHTS = np.array([0.2, 0.2, 0.2, 0.001, 0.001, 0.001])
+    #REWARD_WEIGHTS = np.array([0.2, 0.2, 0.2, 0.0, 0.0, 0.0])
+
+    def _reward(self, p: float = 0.5) -> float:
+        """
+        Proximity to the goal is rewarded
+        We use a weighted p-norm
+        :param achieved_goal: the goal that was achieved
+        :param desired_goal: the goal that was desired
+        :param dict info: any supplementary information
+        :param p: the Lp^p norm used in the reward. Use p<1 to have high kurtosis for rewards in [0, 1]
+        :return: the corresponding reward
+        """
+        orientation =  np.nan_to_num(self.speed/np.linalg.norm(self.speed), neginf=0, posinf=0)
+        achieved_goal = np.concatenate([orientation, self.pos])
+        desired_goal = np.concatenate([self.goal_orientation, self.goal])
+        rew = -np.power(np.dot(np.abs(achieved_goal - desired_goal), self.REWARD_WEIGHTS), p)*0.2
+        if self.terminal_condition != TerminationCondition.NotFinal:
+            rew = rew*10 +15
+        print('reward={}'.format(rew))
+        return rew
+
+class JSBSimEnv_v9 (JSBSimEnv_v5):
+
+    env_name ='JSBSim-v9'
+    '''
+    Wie JSBSim-v5, aber mit Wind 0..30 knoten in beliebige Richtung
+    '''
+
+    def reset(self):
+        self.wind = np.array(0,0,0)        
+        while np.linalg.norm(self.wind)==0:
+            self.wind = np.random.uniform(-1,1,3)
+        self.wind = self.wind/np.linalg.norm(self.wind)*np.random.uniform(0,30)
+        self.sim.set_wind(self.wind)
+        return super().reset()
 
 register(
     id='JSBSim-v0',
@@ -384,6 +473,20 @@ register(
 register(
     id='JSBSim-v6',
     entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v6',
+    max_episode_steps=999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSim-v7',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v7',
+    max_episode_steps=999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSim-v8',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v8',
     max_episode_steps=999,
     reward_threshold=1000.0,
 )

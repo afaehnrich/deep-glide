@@ -2,7 +2,7 @@ from typing import Tuple, List
 import numpy as np
 from deep_glide.pid import PID, PID_angle
 from deep_glide.sim import Sim, SimState, TerrainClass, SimTimer, TerrainOcean
-from deep_glide.utils import Normalizer, angle_between
+from deep_glide.utils import Normalizer, angle_between, ensure_dir, ensure_newfile
 from enum import Enum
 import gym
 from gym import spaces
@@ -11,7 +11,9 @@ from deep_glide import plotting
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from matplotlib import pyplot as plt
-
+import math
+import os
+from datetime import date
 
 class TerminationCondition(Enum):
     NotFinal = 0
@@ -25,10 +27,15 @@ class TerminationCondition(Enum):
 class Config:
     start_ground_distance = (1000,4000)
     goal_ground_distance = (100,100)
-    x_range = (-5000, 5000)
-    y_range = (-5000, 5000)
+    x_range_start = (0, 0)
+    y_range_start = (0, 0)
     z_range_start = (0, 8000)  
-    z_range_goal = (0, 4000) 
+    x_range_goal = (-5000, 5000)
+    y_range_goal = (-5000, 5000)    
+    z_range_goal = (0, 4000)
+    x_range_wind = (-30., 30.)
+    y_range_wind = (-30., 30.)
+    z_range_wind = (-30., 30.)
     # map_start_range =( (600,3000), (600, 3000)) # for 30m hgt
     map_start_range =( (4200,5400), (2400, 3600)) # for 90m hgt srtm_38_03.hgt
     render_range =( (-15000, 15000), (-15000, 15000)) # for 90m hgt srtm_38_03.hgt
@@ -40,18 +47,18 @@ class Config:
         'ic/q-rad_sec': 0,
         'ic/r-rad_sec': 0,
         'ic/roc-fpm': 0,
-        #'ic/psi-true-rad': 0.0,
         'gear/gear-pos-norm': 0.0, # landing gear raised
         'gear/gear-cmd-norm': 0.0, # lnding gear raised
         'propulsion/set-running': 0, # 1 = running; 0 = off
         'fcs/throttle-cmd-norm': 0.0, # 0.8
         'fcs/mixture-cmd-norm': 0.0, # 0.8
     }
+    logdir = './logs'
 
 class AbstractJSBSimEnv(gym.Env, ABC):
 
     config = Config()    
-    terrain: TerrainClass = TerrainOcean()
+    terrain: TerrainClass
 
     goal: np.array # = np.array([0.,0.,0.])
     pos: np.array # = np.array([0.,0.,0.])
@@ -59,15 +66,21 @@ class AbstractJSBSimEnv(gym.Env, ABC):
     goal_orientation: np.array # = np.array([0.,0.])
 
     trajectory=[]
-    stateNormalizer: Normalizer
+    #stateNormalizer: Normalizer
 
     flightRenderer3D = None
+    episode_rendered = False
+
     
     metadata = {'render.modes': ['human']}
-    action_space: spaces.Box = None
-    observation_space: spaces.Box = None
+    action_space = spaces.Box( low = -1., high = 1., shape=(3,), dtype=np.float32)
+    observation_space = spaces.Box( low = -math.inf, high = math.inf, shape=(15,), dtype=np.float32)
+
     sim: Sim
     state: SimState = SimState()
+    env_name: str
+    episode = 0
+    start_date = date.today()
 
     @abstractmethod
     def _checkFinalConditions(self):
@@ -81,18 +94,57 @@ class AbstractJSBSimEnv(gym.Env, ABC):
     def _reward(self):
         pass
 
-    @abstractmethod
-    def _get_state(self):
-        pass
+    mean = np.array([ 0., 0., 0.,
+                    2000.,
+                    0.,0.,
+                    0.,
+                    0., 0., -15.8,
+                    0., 0.,
+                    0., 0., 0.
+                    ])
+    std= np.array([ 0.15, 0.15, 0.15,
+                    2000.,
+                    5000., 5000.,
+                    100.,
+                    120., 120., 20.,
+                    1., 1.,
+                    30., 30., 30.
+                    ])    
 
-    def __init__(self, save_trajectory = False):                
+    def _get_state(self):
+        wind = self.sim.get_wind()
+        state = np.array([self.sim.sim['velocities/p-rad_sec'],
+                        self.sim.sim['velocities/q-rad_sec'],
+                        self.sim.sim['velocities/r-rad_sec'],                                                
+                        self.pos[2],
+                        self.goal[0] -self.pos[0], self.goal[1] - self.pos[1],
+                        self.goal[2],
+                        self.speed[0], self.speed[1], self.speed[2],
+                        self.goal_orientation[0], self.goal_orientation[1],
+                        wind[0], wind[1], wind[2]
+                        ])
+        if not np.isfinite(state).all():
+            logging.error('Infinite number detected in state. Replacing with zero')
+            logging.error('State: {}'.format(state))
+            state = np.nan_to_num(state, neginf=0, posinf=0)
+        state = (state -self.mean) / self.std
+        #state = self.stateNormalizer.normalize(state.view().reshape((1,15)))
+        # state = state.view.reshape((15,))
+        if not np.isfinite(state).all():
+            logging.error('Infinite number after Normalization!')    
+            raise ValueError()
+        return state
+
+    def __init__(self, save_trajectory = False):           
         super().__init__()
+        np.random.seed()
         self.sim = Sim(sim_dt = 0.02)
         self.save_trajectory = save_trajectory  
         self.m_kg = self.sim.sim['inertia/mass-slugs'] * 14.5939029372
         self.g_fps2 = self.sim.sim['accelerations/gravity-ft_sec2']
         self.initial_state = SimState()
         self.initial_state.props = self.config.initial_props
+        #self.stateNormalizer = Normalizer(self.env_name + '_normalizer', auto_sample=True)
 
     def _update(self, sim:Sim ):
         self.pos = sim.pos + self.pos_offset
@@ -125,15 +177,15 @@ class AbstractJSBSimEnv(gym.Env, ABC):
                 reward = self._reward()
                 return self.new_state, reward, done, {}
 
-    def random_position(self, h_range, radius, z_range):
-        rx1,rx2 = self.config.x_range
-        ry1,ry2 = self.config.y_range
+    def random_position(self, h_range, radius, x_range, y_range, z_range):
+        rx1,rx2 = x_range
+        ry1,ry2 = y_range
         rz1,rz2 = z_range
         while True:
             x = np.random.uniform(rx1, rx2)
             y = np.random.uniform(ry1, ry2)
             dmin, dmax = h_range
-            dx, dy  = np.random.uniform(.1, 1.,2)*np.random.choice([-90, 90], 2)
+            dx, dy  = np.random.uniform(1., 1.,2)*np.random.choice([-90, 90], 2)
             while rx1<=x<=rx2 and ry1<=y<=ry2:
                 h = self.terrain.max_altitude(x, y, radius)
                 if h+dmin <= rz2 and rz1 <= h+dmax:
@@ -143,13 +195,19 @@ class AbstractJSBSimEnv(gym.Env, ABC):
                 y += dy    
         
     def reset(self) -> object: #->observation
-        self.plot_fig = None
+        np.random.seed()
+        if self.episode_rendered: 
+            self.save_plot()
+            self.episode_rendered = False
         (mx1, mx2), (my1,my2) = self.config.map_start_range
         self.terrain.map_offset = [np.random.randint(mx1, mx2), np.random.randint(my1, my2)]
         self.terrain.define_map_for_plotting(self.config.render_range[0], self.config.render_range[1])              
-        self.goal = self.random_position(self.config.goal_ground_distance, self.config.ground_distance_radius, self.config.z_range_goal)
-        self.start = self.random_position(self.config.start_ground_distance, self.config.ground_distance_radius, self.config.z_range_start)
-        self.goal_orientation = np.random.uniform(.01, 1., 2) * np.random.choice([-1,1],2)
+        self.goal = self.random_position(self.config.goal_ground_distance, self.config.ground_distance_radius, 
+                                        self.config.x_range_goal, self.config.y_range_goal, self.config.z_range_goal)
+        self.start = self.random_position(self.config.start_ground_distance, self.config.ground_distance_radius,
+                                          self.config.x_range_start, self.config.y_range_start, self.config.z_range_start)
+        self.goal_orientation = np.random.uniform(.01, 1., 3) * np.random.choice([-1,1],3)
+        self.goal_orientation[2] = 0
         self.goal_orientation = self.goal_orientation / np.linalg.norm(self.goal_orientation)
         self.pos_offset = self.start.copy()
         self.pos_offset[2] = 0
@@ -171,37 +229,50 @@ class AbstractJSBSimEnv(gym.Env, ABC):
         self.heading_target = 0
         self.sim.run()
         self._update(self.sim)
+        self.episode +=1
         return self._get_state()
     
     plot_fig: plt.figure = None
 
-    def render(self, mode='human'):
+    def render(self, mode='human'):        
         if self.plot_fig is None:
-            self.plot_fig = plt.figure('render 2D', figsize=(10, 10), dpi=80)
+            self.plot_fig = plt.figure('render 2D', figsize=(10, 10), dpi=80)            
+            plt.ion()
+            plt.show()
+        if not self.episode_rendered:
+            self.plot_fig = plt.figure('render 2D', figsize=(10, 10), dpi=80)            
+            plt.clf()
             (x1,x2), (y1,y2) = self.config.render_range
             img = self.terrain.get_map((x1,y1), (x2,y2))
             from scipy import ndimage
             img = ndimage.rotate(img, 90)
-            plt.clf()
             plt.imshow(img, cmap='gist_earth', vmin=-1000, vmax = 4000, origin='upper', extent=(x1,x2,y1,y2))
             xs,ys, _ = self.start
             xg,yg, _ = self.goal
-            xgo, ygo = self.goal_orientation
+            xgo, ygo, _ = self.goal_orientation
             plt.plot(xs,ys,'ro')
             plt.plot([xg,xg-xgo*500],[yg,yg-ygo*500], 'b-')
             plt.plot(xg,yg,'ro')
-            plt.ion()
-            plt.show()            
+            self.episode_rendered = True
         plt.figure(self.plot_fig.number)        
         x, y, z = self.pos
         z_max  = self.start[2]
         z_min = self.goal[2]        
         color_z = (z-z_min)/(z_max-z_min)
         color_z = 1-max(min(color_z, 1),0)
-        plt.plot(x,y, '.', color=(1,color_z,0))
+        plt.plot(x,y, '.', color=(1,color_z,0))            
         plt.gcf().canvas.draw_idle()
         plt.gcf().canvas.start_event_loop(0.0001)
 
+    def save_plot(self):        
+        filename =os.path.join(self.config.logdir,self.env_name,'render','{}_{}_render_episode {}.png'.format(
+                                            self.env_name, self.start_date, self.episode))
+        filename = ensure_newfile(filename)
+        dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
+        delta_angle = abs(angle_between(self.goal_orientation[0:2], self.speed[0:2]))
+        delta_angle = np.degrees(delta_angle)
+        plt.title('Final state: distance to goal={:.2f} m; delta approach angle={:.2f}°; reward={:.2f}'.format(dist_target, delta_angle, self._reward()))
+        plt.savefig(filename)
 
     def render_episode_3D(self):        
         if self.flightRenderer3D is None:

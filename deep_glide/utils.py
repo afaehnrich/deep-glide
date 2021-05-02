@@ -30,16 +30,35 @@ def limit_angle( angle, max_angle):
     half = max_angle / 2
     return (angle + half ) % max_angle - half
 
+def ensure_dir(file_path):
+    directory = os.path.dirname(file_path)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+def ensure_newfile(file_path):    
+    ensure_dir(file_path)
+    if not os.path.exists(file_path): return file_path    
+    directory, fn_new = os.path.split(file_path)
+    filename, extension = os.path.splitext(fn_new)
+    i=0
+    while os.path.exists(os.path.join(directory,fn_new)):
+        i +=1
+        fn_new = '{}_{}{}'.format(filename,i,extension)
+    return os.path.join(directory,fn_new)
+
+
 class Normalizer:
     save_count = 0
     n_samples = 0
     count =1
     mean = 1
     M2 = 1
+    auto_sample=False
 
-    def __init__(self, simName, save_interval=50000):
+    def __init__(self, simName, auto_sample= False, save_interval=50000):
         self.simName = simName
         self.save_interval = save_interval
+        self.auto_sample = auto_sample
 
     # https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
     # For a new value newValue, compute the new count, new mean, the new M2.
@@ -62,10 +81,13 @@ class Normalizer:
 
     def save_state(self):
         with open('{}_normalizer.txt'.format(self.simName), 'a') as file: 
-            file.write('n_samples={}:\r\n  count={}\r\n  nmean={}\r\n  M2={}\r\n\r\n'.format(self.n_samples, self.count, self.mean, self.M2))        
+            variance = self.M2 / self.count
+            std = np.sqrt(variance)
+            file.write('n_samples={}:\r\n  count={}\r\n  mean={}\r\n  M2={}\r\n  variance={}\r\n  std={}\r\n\r\n'.format(self.n_samples, self.count, self.mean,
+                     self.M2, variance, std))        
 
-    def normalize(self, x, add_sample=True):
-        if add_sample: 
+    def normalize(self, x: np.array) -> np.array:
+        if self.auto_sample: 
             self.add_batch(x)
             self.save_count += x.shape[0]
             self.n_samples += x.shape[0]
