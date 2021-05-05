@@ -13,9 +13,12 @@ ENV PYTHONUNBUFFERED=1
 
 RUN python --version
 RUN pip --version
-WORKDIR /app
+WORKDIR ${CODE_DIR}
 ADD ./requirements.txt ./requirements.txt
 
 RUN python3 -m pip install -r ./requirements.txt
 #RUN python3 -m pip install -r ./requirements_jsbgym-flex.txt
 #RUN python3 -m pip install -r ./requirements_deep-glide.txt
+RUN git clone https://github.com/afaehnrich/deep-glide.git
+#RUN python3 train.py --algo sac --env JSBSim-v0 -n 1000 --eval-freq 1000 --save-freq 50000 --tensorboard-log logs
+RUN ls /root -R | grep ":$" | sed -e 's/:$//' -e 's/[^-][^\/]*\//--/g' -e 's/^/   /' -e 's/-/|/'

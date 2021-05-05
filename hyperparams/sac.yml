@@ -1,3 +1,64 @@
+ 
+JSBSim2D-v0:
+  n_timesteps: !!float 1e6
+  policy: 'MlpPolicy'
+  learning_rate: lin_7.3e-4
+  buffer_size: 300000
+  batch_size: 256
+  ent_coef: 'auto'
+  gamma: 0.98
+  tau: 0.02
+  train_freq: 64
+  gradient_steps: 64
+  learning_starts: 10000
+  use_sde: True
+  policy_kwargs: "dict(log_std_init=-3, net_arch=[400, 300])"
+
+JSBSim2D-v1:
+  n_timesteps: !!float 1e6
+  policy: 'MlpPolicy'
+  learning_rate: lin_7.3e-4
+  buffer_size: 300000
+  batch_size: 256
+  ent_coef: 'auto'
+  gamma: 0.98
+  tau: 0.02
+  train_freq: 64
+  gradient_steps: 64
+  learning_starts: 10000
+  use_sde: True
+  policy_kwargs: "dict(log_std_init=-3, net_arch=[4096, 1024])"
+
+JSBSim2D-v2:
+  n_timesteps: !!float 1e6
+  policy: 'MlpPolicy'
+  learning_rate: lin_7.3e-4
+  buffer_size: 300000
+  batch_size: 256
+  ent_coef: 'auto'
+  gamma: 0.98
+  tau: 0.02
+  train_freq: 64
+  gradient_steps: 64
+  learning_starts: 10000
+  use_sde: True
+  policy_kwargs: "dict(log_std_init=-3, net_arch=[4096, 2096, 1024])"
+  
+JSBSimRaw-v0:
+  n_timesteps: !!float 1e6
+  policy: 'MlpPolicy'
+  learning_rate: lin_7.3e-4
+  buffer_size: 300000
+  batch_size: 256
+  ent_coef: 'auto'
+  gamma: 0.98
+  tau: 0.02
+  train_freq: 64
+  gradient_steps: 64
+  learning_starts: 10000
+  use_sde: True
+  policy_kwargs: "dict(log_std_init=-3, net_arch=[400, 300])"
+
 JSBSim-v0:
   n_timesteps: !!float 1e6
   policy: 'MlpPolicy'
@@ -72,8 +133,8 @@ JSBSim-v4:
   learning_starts: 10000
   use_sde: True
   policy_kwargs: "dict(log_std_init=-3, net_arch=[400, 300])"
-  
-JSBSim2D-v0:
+
+JSBSim-v5:
   n_timesteps: !!float 1e6
   policy: 'MlpPolicy'
   learning_rate: lin_7.3e-4
@@ -84,7 +145,82 @@ JSBSim2D-v0:
   tau: 0.02
   train_freq: 64
   gradient_steps: 64
-  learning_starts: 10
+  learning_starts: 10000
+  use_sde: True
+  policy_kwargs: "dict(log_std_init=-3, net_arch=[400, 300])"
+
+JSBSim-v6:
+  n_timesteps: !!float 1e6
+  policy: 'MlpPolicy'
+  learning_rate: lin_7.3e-4
+  buffer_size: 300000
+  batch_size: 256
+  ent_coef: 'auto'
+  gamma: 0.98
+  tau: 0.02
+  train_freq: 64
+  gradient_steps: 64
+  learning_starts: 10000
+  use_sde: True
+  policy_kwargs: "dict(log_std_init=-3, net_arch=[400, 300])"
+
+JSBSim-v7:
+  n_timesteps: !!float 1e6
+  policy: 'MlpPolicy'
+  learning_rate: lin_7.3e-4
+  buffer_size: 300000
+  batch_size: 256
+  ent_coef: 'auto'
+  gamma: 0.98
+  tau: 0.02
+  train_freq: 64
+  gradient_steps: 64
+  learning_starts: 10000
+  use_sde: True
+  policy_kwargs: "dict(log_std_init=-3, net_arch=[400, 300])"
+  
+JSBSim-v8:
+  n_timesteps: !!float 1e6
+  policy: 'MlpPolicy'
+  learning_rate: lin_7.3e-4
+  buffer_size: 300000
+  batch_size: 256
+  ent_coef: 'auto'
+  gamma: 0.98
+  tau: 0.02
+  train_freq: 64
+  gradient_steps: 64
+  learning_starts: 10000
+  use_sde: True
+  policy_kwargs: "dict(log_std_init=-3, net_arch=[400, 300])"
+  
+JSBSim-v9:
+  n_timesteps: !!float 1e6
+  policy: 'MlpPolicy'
+  learning_rate: lin_7.3e-4
+  buffer_size: 300000
+  batch_size: 256
+  ent_coef: 'auto'
+  gamma: 0.98
+  tau: 0.02
+  train_freq: 64
+  gradient_steps: 64
+  learning_starts: 10000
+  use_sde: True
+  policy_kwargs: "dict(log_std_init=-3, net_arch=[400, 300])"
+  
+JSBSim-v10:
+  n_timesteps: !!float 1e6
+  policy: 'MlpPolicy'
+  learning_rate: lin_7.3e-4
+  buffer_size: 300000
+  batch_size: 256
+  ent_coef: 'auto'
+  gamma: 0.98
+  tau: 0.02
+  train_freq: 64
+  gradient_steps: 64
+  learning_starts: 10000
   use_sde: True
   policy_kwargs: "dict(log_std_init=-3, net_arch=[400, 300])"
   
