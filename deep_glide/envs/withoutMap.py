@@ -1,6 +1,6 @@
 from enum import auto
 import numpy as np
-from deep_glide.sim import Sim, SimState, TerrainBlockworld, TerrainClass, TerrainOcean
+from deep_glide.sim import Sim, SimState, TerrainBlockworld, TerrainClass, TerrainClass90m, TerrainOcean, SimTimer
 from deep_glide.envs.abstractEnvironments import AbstractJSBSimEnv, TerminationCondition
 from deep_glide.utils import Normalizer, ensure_dir, angle_between
 from gym.envs.registration import register
@@ -312,7 +312,7 @@ class JSBSimEnv_v5(JSBSimEnv_v2):
         elif self.terminal_condition == TerminationCondition.Arrived: 
             rew = (self.RANGE_DIST-dist_target)/self.RANGE_DIST*10
         else:
-            rew = -abs((dist_target-self.RANGE_DIST)/3000) 
+            rew = min(self.RANGE_DIST-dist_target,0)/3000
         if not np.isfinite(rew).all():
             logging.error('Infinite number detected in state. Replacing with zero')
             logging.error('State: {} reward: {}'.format(self._get_state(), rew))
@@ -339,7 +339,7 @@ class JSBSimEnv_v6(JSBSimEnv_v5):
         else: 
             self.terminal_condition = TerminationCondition.NotFinal
         if self.terminal_condition != TerminationCondition.NotFinal \
-           and (np.linalg.norm(self.goal[0:2] - self.pos[0:2])<self.RANGE_DIST) \
+           and (np.linalg.norm(self.goal[0:2] - self.pos[0:2]) < self.RANGE_DIST) \
            and (abs(angle_between(self.goal_orientation[0:2], self.speed[0:2])) < self.RANGE_ANGLE) :
             logging.debug('Arrived at Target')
             self.terminal_condition = TerminationCondition.Arrived
@@ -349,6 +349,7 @@ class JSBSimEnv_v6(JSBSimEnv_v5):
         self._checkFinalConditions()
         rew = 0
         dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
+        delta_angle = abs(angle_between(self.goal_orientation[0:2], self.speed[0:2]))
         if self.terminal_condition == TerminationCondition.NotFinal:
             energy = self._get_energy()
             if energy == 0:
@@ -356,14 +357,12 @@ class JSBSimEnv_v6(JSBSimEnv_v5):
             else:
                 rew = - dist_target / energy * 29.10
         elif self.terminal_condition == TerminationCondition.Arrived: 
-            delta_angle = abs(angle_between(self.goal_orientation[0:2], self.speed[0:2]))
             rew_dist = (self.RANGE_DIST-dist_target)/self.RANGE_DIST*5
             rew_angle = (self.RANGE_ANGLE-delta_angle) / self.RANGE_ANGLE * 5
             rew = rew_angle + rew_dist
         else:
-            delta_angle = abs(angle_between(self.goal_orientation[0:2], self.speed[0:2]))
-            rew_dist = min(-dist_target-self.RANGE_DIST,0)/3000
-            rew_angle = min(-delta_angle-self.RANGE_ANGLE,0)/math.pi*15.
+            rew_dist = min(self.RANGE_DIST-dist_target,0)/3000/1.3
+            rew_angle = min(self.RANGE_ANGLE-delta_angle,0)
             rew = rew_angle + rew_dist
         if not np.isfinite(rew).all():
             logging.error('Infinite number detected in state. Replacing with zero')
@@ -421,12 +420,29 @@ class JSBSimEnv_v9 (JSBSimEnv_v5):
     '''
 
     def reset(self):
-        self.wind = np.array(0,0,0)        
+        self.wind = np.array([0,0,0])
         while np.linalg.norm(self.wind)==0:
             self.wind = np.random.uniform(-1,1,3)
         self.wind = self.wind/np.linalg.norm(self.wind)*np.random.uniform(0,30)
         self.sim.set_wind(self.wind)
         return super().reset()
+
+
+class JSBSimEnv_v10 (JSBSimEnv_v6):
+
+    env_name ='JSBSim-v10'
+    '''
+    Wie JSBSim-v6, aber mit action einmal pro Sekunde statt alle 5 Sekunden
+    '''
+
+    def reset(self):
+        state = super().reset()
+        self.timer_goto = SimTimer(1.)
+        return state
+
+    def _reward(self):
+        return super()._reward()/5
+
 
 register(
     id='JSBSim-v0',
@@ -487,6 +503,20 @@ register(
 register(
     id='JSBSim-v8',
     entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v8',
+    max_episode_steps=999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSim-v9',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v9',
+    max_episode_steps=999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSim-v10',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v10',
     max_episode_steps=999,
     reward_threshold=1000.0,
 )

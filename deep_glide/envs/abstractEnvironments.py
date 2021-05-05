@@ -1,8 +1,8 @@
 from typing import Tuple, List
 import numpy as np
 from deep_glide.pid import PID, PID_angle
-from deep_glide.sim import Sim, SimState, TerrainClass, SimTimer, TerrainOcean
-from deep_glide.utils import Normalizer, angle_between, ensure_dir, ensure_newfile
+from deep_glide.sim import Sim, SimState, TerrainClass, SimTimer, TerrainOcean, Runway
+from deep_glide.utils import Normalizer, angle_between, ensure_dir, ensure_newfile, rotate_vect_2d
 from enum import Enum
 import gym
 from gym import spaces
@@ -14,6 +14,7 @@ from matplotlib import pyplot as plt
 import math
 import os
 from datetime import date
+import time
 
 class TerminationCondition(Enum):
     NotFinal = 0
@@ -33,14 +34,17 @@ class Config:
     x_range_goal = (-5000, 5000)
     y_range_goal = (-5000, 5000)    
     z_range_goal = (0, 4000)
+    x_search_range = (-5000, 5000)
+    y_search_range = (-5000, 5000)        
     x_range_wind = (-30., 30.)
     y_range_wind = (-30., 30.)
     z_range_wind = (-30., 30.)
     # map_start_range =( (600,3000), (600, 3000)) # for 30m hgt
     map_start_range =( (4200,5400), (2400, 3600)) # for 90m hgt srtm_38_03.hgt
-    render_range =( (-15000, 15000), (-15000, 15000)) # for 90m hgt srtm_38_03.hgt
+    render_range =( (-7500, 7500), (-7500, 7500)) # for 90m hgt srtm_38_03.hgt
     min_distance_terrain = 50
-    ground_distance_radius = 500
+    ground_distance_radius = 900
+    runway_dimension = np.array([900,60])
     initial_props={
         'ic/terrain-elevation-ft': 0.00000001, # 0.0 erzeugt wohl NaNs
         'ic/p-rad_sec': 0,
@@ -181,12 +185,19 @@ class AbstractJSBSimEnv(gym.Env, ABC):
         rx1,rx2 = x_range
         ry1,ry2 = y_range
         rz1,rz2 = z_range
+        sx1,sx2 = self.config.x_search_range
+        sy1,sy2 = self.config.y_search_range
+        i = 0
         while True:
+            i+=1
+            if i>100000:
+                logging.error('Cannot find random position after 100.000 tries! ')
+                raise RuntimeError('Cannot find random position after 100.000 tries! ')
             x = np.random.uniform(rx1, rx2)
             y = np.random.uniform(ry1, ry2)
             dmin, dmax = h_range
-            dx, dy  = np.random.uniform(1., 1.,2)*np.random.choice([-90, 90], 2)
-            while rx1<=x<=rx2 and ry1<=y<=ry2:
+            dx, dy  = np.random.uniform(.1, 1.,2)*np.random.choice([-90, 90], 2)
+            while sx1<=x<=sx2 and sy1<=y<=sy2:
                 h = self.terrain.max_altitude(x, y, radius)
                 if h+dmin <= rz2 and rz1 <= h+dmax:
                     z = np.random.uniform(max(h + dmin,rz1), min(h+dmax, rz2))
@@ -209,6 +220,8 @@ class AbstractJSBSimEnv(gym.Env, ABC):
         self.goal_orientation = np.random.uniform(.01, 1., 3) * np.random.choice([-1,1],3)
         self.goal_orientation[2] = 0
         self.goal_orientation = self.goal_orientation / np.linalg.norm(self.goal_orientation)
+        self.runway = Runway(self.goal[0:2], self.goal_orientation[0:2],self.config.runway_dimension)
+        self.terrain.set_runway(self.runway)
         self.pos_offset = self.start.copy()
         self.pos_offset[2] = 0
         self.trajectory=[]   
@@ -234,44 +247,70 @@ class AbstractJSBSimEnv(gym.Env, ABC):
     
     plot_fig: plt.figure = None
 
+    def render_start_goal(self, alpha):
+        xs,ys, _ = self.start
+        xg1,yg1, _ = self.goal            
+        xgo, ygo, _ = self.goal_orientation            
+        runway_len = self.config.runway_dimension[0]
+        xg2 = xg1+xgo*runway_len
+        yg2 = yg1+ygo*runway_len
+        xarrow1, yarrow1 = np.array([xg2,yg2]) - rotate_vect_2d(self.goal_orientation[0:2],np.radians(30))*runway_len/5
+        xarrow2, yarrow2 = np.array([xg2,yg2]) - rotate_vect_2d(self.goal_orientation[0:2],np.radians(-30))*runway_len/5
+        print('xarr={}, yarr={}'.format(xarrow1, yarrow1))
+        print(np.array([xg2,yg2]))
+        print(rotate_vect_2d(self.goal_orientation[0:2],np.radians(30))*runway_len/10)
+        plt.plot(xs,ys,'mo', alpha=alpha)
+        plt.plot([xg1,xg2],[yg1,yg2], 'm-', alpha=alpha)
+        plt.plot([xarrow1,xg2,xarrow2],[yarrow1,yg2,yarrow2], 'm-', alpha=alpha)
+        plt.plot(xg1,yg1,'m.', alpha=alpha)            
+
+
+
     def render(self, mode='human'):        
         if self.plot_fig is None:
             self.plot_fig = plt.figure('render 2D', figsize=(10, 10), dpi=80)            
             plt.ion()
             plt.show()
-        if not self.episode_rendered:
+        if not self.episode_rendered:            
             self.plot_fig = plt.figure('render 2D', figsize=(10, 10), dpi=80)            
             plt.clf()
             (x1,x2), (y1,y2) = self.config.render_range
+            res = self.terrain.resolution
             img = self.terrain.get_map((x1,y1), (x2,y2))
             from scipy import ndimage
             img = ndimage.rotate(img, 90)
-            plt.imshow(img, cmap='gist_earth', vmin=-1000, vmax = 4000, origin='upper', extent=(x1,x2,y1,y2))
-            xs,ys, _ = self.start
-            xg,yg, _ = self.goal
-            xgo, ygo, _ = self.goal_orientation
-            plt.plot(xs,ys,'ro')
-            plt.plot([xg,xg-xgo*500],[yg,yg-ygo*500], 'b-')
-            plt.plot(xg,yg,'ro')
+            plt.imshow(img, cmap='gist_earth', vmin=-1000, vmax = 4000, origin='upper', extent=(x1-res/2,x2-res/2,y1-res/2,y2-res/2))
+            self.render_start_goal(1)
+            self.plot_oldxy = self.pos
             self.episode_rendered = True
+            self.render_time = time.time()-1
         plt.figure(self.plot_fig.number)        
-        x, y, z = self.pos
+        x1, y1, z1 = self.plot_oldxy
+        x2, y2, z2 = self.pos
         z_max  = self.start[2]
         z_min = self.goal[2]        
-        color_z = (z-z_min)/(z_max-z_min)
+        color_z = (z2-z_min)/(z_max-z_min)
         color_z = 1-max(min(color_z, 1),0)
-        plt.plot(x,y, '.', color=(1,color_z,0))            
-        plt.gcf().canvas.draw_idle()
-        plt.gcf().canvas.start_event_loop(0.0001)
+        plt.plot([x1, x2],[y1, y2], '-', color=(1,color_z,0))
+        if time.time()-self.render_time>0.05:
+            plt.gcf().canvas.draw_idle()
+            plt.gcf().canvas.start_event_loop(0.0001)
+            self.render_time = time.time()
+        self.plot_oldxy = self.pos
 
-    def save_plot(self):        
-        filename =os.path.join(self.config.logdir,self.env_name,'render','{}_{}_render_episode {}.png'.format(
-                                            self.env_name, self.start_date, self.episode))
-        filename = ensure_newfile(filename)
+
+    def save_plot(self):
+        self.render_time = time.time()-1
+        self.render()          
         dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
         delta_angle = abs(angle_between(self.goal_orientation[0:2], self.speed[0:2]))
         delta_angle = np.degrees(delta_angle)
+        self.plot_fig = plt.figure('render 2D', figsize=(10, 10), dpi=80)            
         plt.title('Final state: distance to goal={:.2f} m; delta approach angle={:.2f}°; reward={:.2f}'.format(dist_target, delta_angle, self._reward()))
+        self.render_start_goal(0.5)
+        filename =os.path.join(self.config.logdir,self.env_name,'render','{}_{}_render_episode {}.png'.format(
+                                            self.env_name, self.start_date, self.episode))
+        filename = ensure_newfile(filename)
         plt.savefig(filename)
 
     def render_episode_3D(self):        

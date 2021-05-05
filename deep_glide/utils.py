@@ -2,6 +2,7 @@ import numpy as np
 import logging
 import os
 from array import array
+from PIL import Image, ImageDraw
 
 def angle_between(v1, v2):
     #nach https://stackoverflow.com/a/13849249/11041146
@@ -13,6 +14,13 @@ def angle_between(v1, v2):
     angle = np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
     if np.isnan(angle): return 0
     return angle*sign
+
+def rotate_vect_2d(v, angle):
+    c, s = np.cos(angle) , np.sin(angle)
+    R = np.array(((c, -s), (s, c)))
+    return np.dot(R,v)
+
+
 
 def angle_plane_line(v1_plane:np.array , v2_plane: np.array, v_line: np.array)->float:
     n = np.cross(v1_plane, v2_plane)
@@ -45,6 +53,12 @@ def ensure_newfile(file_path):
         i +=1
         fn_new = '{}_{}{}'.format(filename,i,extension)
     return os.path.join(directory,fn_new)
+
+def draw_poly(data, coordinates, color):
+    img = Image.fromarray(data)
+    draw = ImageDraw.Draw(img)
+    draw.polygon([(p[1],p[0]) for p in coordinates], fill=color)
+    return np.asarray(img)
 
 
 class Normalizer:

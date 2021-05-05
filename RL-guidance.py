@@ -10,6 +10,7 @@ import numpy as np
 from deep_glide.pid import PID_angle, PID
 from deep_glide.sim import Sim,  SimState, TerrainClass, TerrainOcean, SimTimer, TerrainClass90m, TerrainClass30m, TerrainBlockworld
 from deep_glide.envs.withoutMap import JSBSimEnv_v0, JSBSimEnv_v1, JSBSimEnv_v2, JSBSimEnv_v4, JSBSimEnv_v5, JSBSimEnv_v6,JSBSimEnv_v8
+from deep_glide.envs.rawInputs import JSBSimRaw_v0
 from deep_glide.envs.withMap import JSBSimEnv2D_v0
 from typing import Dict, List, Tuple
 from array import array
@@ -26,7 +27,7 @@ from datetime import datetime
 
 class RL_train:
 
-    simHandler =  JSBSimEnv_v6() #JSBSimEnv2D_v0()
+    simHandler =  JSBSimRaw_v0() #JSBSimEnv2D_v0()
     BATCH_SIZE = 128
 
     def init_rl_agents(self, action_space, obs_space, load_models):
@@ -226,9 +227,9 @@ def main():
     
     rl_trainer = RL_train(state_start, x_goal, step_len = 3000, goal_sample_rate = 0.10, search_radius = 1000, 
                         iter_max = 500, number_neighbors = 10, number_neighbors_goal = 50)
-    rl_trainer.guidance_perfect( render=True) # Funktioniert nicht mit normalisierten States!
+    #rl_trainer.guidance_perfect( render=True) # Funktioniert nicht mit normalisierten States!
     # rl_trainer.height()
-    #rl_trainer.guidance_random( render=True)
+    rl_trainer.guidance_random( render=True)
     # rl_trainer.show_map()
     # rl_trainer.guidance()
 

@@ -1,5 +1,5 @@
 from abc import abstractclassmethod, abstractmethod
-from deep_glide.utils import elevation_asc2hgt
+from deep_glide.utils import elevation_asc2hgt, draw_poly
 import jsbsim
 import os
 from typing import Dict, List
@@ -145,6 +145,30 @@ class Sim():
         self['gear/gear-pos-norm'] = value
         self['gear/gear-cmd-norm'] = value
 
+class Runway:
+
+    def __init__(self, position, direction, dimension):
+        self.dir = np.array(direction) # flight direction
+        self.dim = np.array(dimension) # length, width of touchdown zone
+        self.pos = np.array(position) # Middel of Brick One
+
+    def is_inside(self, p):
+        length, width = self.dim
+        p1, p2, p3, p4 = self.get_rectangle()
+        dist_length = np.dot ((p3-p2)/np.linalg.norm(p3-p2), p3-p)
+        inside_length = (0<=dist_length<=length)
+        dist_width = np.dot ((p2-p1)/np.linalg.norm(p2-p1), p2-p)
+        inside_width = (0<=dist_width<=width)
+        return inside_length and inside_width
+
+    def get_rectangle(self):
+        length, width = self.dim
+        dir90 = np.array([self.dir[1], -self.dir[0]])
+        p1 = self.pos - dir90 * width/2
+        p2 = self.pos + dir90 * width/2
+        p3 = p2 + self.dir * length
+        p4 = p3 - dir90 * width
+        return p1, p2, p3, p4
 
 class TerrainClass:
     
@@ -173,6 +197,10 @@ class TerrainClass:
     @abstractmethod
     def pixel_from_coordinate(self, point):
         pass
+
+    @abstractmethod
+    def set_runway(self, lf:Runway):
+        pass
   
 
 class TerrainClass30m(TerrainClass):
@@ -189,7 +217,8 @@ class TerrainClass30m(TerrainClass):
         data.fromfile(f, self.row_length*self.row_length)
         data.byteswap()
         f.close()
-        self.data = np.array(data).reshape(self.row_length,self.row_length)       
+        self.data = np.array(data).reshape(self.row_length,self.row_length)    
+        self.data_bak = self.data.copy()   
         self.map_offset =  [self.row_length//2, self.row_length//2]
 
     def define_map_for_plotting(self, xrange, yrange):
@@ -200,12 +229,16 @@ class TerrainClass30m(TerrainClass):
         self.Z = self.data[self.map_offset[0]+self.xrange[0]:self.map_offset[0]+self.xrange[1],
                            self.map_offset[1]+self.yrange[0]:self.map_offset[1]+self.yrange[1]]
         
+    # def altitude(self, x,y):
+    #     off_x, off_y = self.map_offset
+    #     id_x = int(round(x / self.resolution)) + off_x
+    #     id_y = int(round(y / self.resolution)) + off_y
+    #     if id_x >= self.data.shape[0] or id_y >= self.data.shape[1] or id_x < 0 or id_y < 0:
+    #         return 0
+    #     return self.data[id_x, id_y]
+
     def altitude(self, x,y):
-        off_x, off_y = self.map_offset
-        id_x = int(round(x / self.resolution)) + off_x
-        id_y = int(round(y / self.resolution)) + off_y
-        if id_x >= self.data.shape[0] or id_y >= self.data.shape[1] or id_x < 0 or id_y < 0:
-            return 0
+        id_x, id_y = self.pixel_from_coordinate((x,y))
         return self.data[id_x, id_y]
 
     def max_altitude(self, x, y, radius):
@@ -231,6 +264,18 @@ class TerrainClass30m(TerrainClass):
         x2, y2 = self.pixel_from_coordinate(p2)
         return self.data[x1: x2, y1:y2]
 
+    def set_runway(self, runway:Runway):
+        self.runway = runway
+        p1,p2,p3,p4 = self.runway.get_rectangle()
+        px1 = self.pixel_from_coordinate(p1)
+        px2 = self.pixel_from_coordinate(p2)
+        px3 = self.pixel_from_coordinate(p3)
+        px4 = self.pixel_from_coordinate(p4)
+        mask = np.zeros(self.data.shape)
+        mask = draw_poly(mask, [px1,px2,px3,px4],1)
+        max_height= (self.data_bak*mask).max()
+        self.data = np.maximum(self.data_bak, mask*max_height)
+        return max_height
     
 
 class TerrainClass90m(TerrainClass30m):
@@ -249,6 +294,8 @@ class TerrainBlockworld(TerrainClass90m):
         self.map_offset =  [self.row_length//2, self.row_length//2]
         self.create_blocks(50000, False, 100000)
         self.create_blocks(25000, True)
+        self.data_bak = self.data.copy()   
+        
 
     block_dimensions = np.array([[5, 4],
                                 [10, 4],
@@ -287,11 +334,9 @@ class TerrainBlockworld(TerrainClass90m):
 class TerrainOcean(TerrainClass90m):
     def __init__(self):
         self.data = np.zeros((self.row_length,self.row_length))
+        self.data_bak = self.data.copy()   
         self.map_offset =  [self.row_length//2, self.row_length//2]
 
-    def altitude(self, x, y):
-        return 0.
- 
 
 
 class SimTimer:
