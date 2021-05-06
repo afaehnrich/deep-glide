@@ -517,6 +517,6 @@ register(
 register(
     id='JSBSim-v10',
     entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v10',
-    max_episode_steps=999,
+    max_episode_steps=9999999,
     reward_threshold=1000.0,
 )
