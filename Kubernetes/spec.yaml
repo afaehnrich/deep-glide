@@ -1,0 +1,41 @@
+kind: Job
+apiVersion: batch/v1
+metadata:
+  name: deep-glide-test
+  namespace: kube-system
+spec:
+  template:
+    metadata:
+      name: deep-glide-test
+    spec:
+      volumes:
+        - name: hostvol
+          hostPath:
+            path: /root/rl_logs
+            type: ''
+      containers:
+        - name: deep-glide-test-container
+          image: 'afaehnrich/deep-glide:latest'
+          command: ["python3"]
+          args: ["../rl-baselines3-zoo/train.py", "--algo", "sac", "--env", "JSBSim-v2", "-n", "1000", "--eval-freq", "1000", "--save-freq", "500", "--tensorboard-log", "logs"]          
+          resources: {}
+          volumeMounts:
+            - name: hostvol
+              mountPath: /root/code/deep-glide/logs
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          imagePullPolicy: Always
+          securityContext:
+            privileged: false
+      restartPolicy: Never
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
+      securityContext: {}
+      schedulerName: default-scheduler
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600

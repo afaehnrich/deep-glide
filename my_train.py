@@ -27,13 +27,14 @@ def train_withmap_v1(env, model=None):
         total_timesteps=1e6)
     return model
 
-env = gym.make('JSBSim2D-v0')
-model = train_withmap_v1(env)
+env = gym.make('JSBSim-v0')
+#model = train_withmap_v1(env)
 print('Model fertig trainiert! Enter drücken!')
-input()
+#input()
 obs = env.reset()
 for i in range(5000):
-    action, _state = model.predict(obs, deterministic=True)
+    #action, _state = model.predict(obs, deterministic=True)
+    #action, _state = env.
     obs, reward, done, info = env.step(action)
     env.render()
     if done:

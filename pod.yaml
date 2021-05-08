@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: train-jsbsim2
+  labels:
+    app: train-jsbsim2
+spec:
+  containers:
+    - image: deep-glide-requirements
+      name: deep-glide
+      ports:
+        - containerPort: 80 

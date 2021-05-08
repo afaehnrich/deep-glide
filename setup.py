@@ -1,8 +1,8 @@
 from setuptools import setup, find_packages
 
 
-setup(name='deep_glide_RRT',
-      version='0.1',
+setup(name='deep_glide',
+      version='0.9',
       description='A package of reinforcement learning environments for flight '
                   'control using the JSBSim flight dynamics model.',
       author='AF',
