@@ -10,6 +10,8 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR ${CODE_DIR}
 RUN python3 -m pip install wheel gym numpy matplotlib jsbsim toml datetime Flask
+#JSBSim git clonen, damit wir Zugriff auf die Flugzeugmodelle haben
+RUN git clone https://github.com/JSBSim-Team/jsbsim.git
 
 # kompatible Versionen von stable-baselines3 und rl-baselines3-zoo von Git holen. Sonst gibts Fehlermeldung.
 RUN python3 -m pip uninstall stable-baselines3 -y

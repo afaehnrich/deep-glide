@@ -11,7 +11,7 @@ import random
 
 class Sim():
 
-    JSBSIM_DIR = "jsbsim_models"
+    JSBSIM_DIR = "../../jsbsim"
     AIRCRAFT = 'c172p'
     
     pos = (0,0,0)
