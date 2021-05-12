@@ -9,11 +9,3 @@ docker run --mount src=$(pwd)/logs,target=/root/code/deep-glide/logs,type=bind a
 #        - name: hostvol
 #          hostPath:
 #            path: /home/mixedfrog/Dokumente/kubernetes-test/logs
-
-          volumeMounts:
-            - name: hostvol
-              mountPath: /root/code/deep-glide/logs
-      volumes:
-        - name: hostvol
-          hostPath:
-            path: /home/mixedfrog/Dokumente/kubernetes-test/logs

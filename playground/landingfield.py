@@ -3,6 +3,7 @@ import numpy as np
 from PIL import Image
 from PIL import ImageDraw
 from deep_glide.sim import Runway
+from stable_baselines3.her import HerReplayBuffer
 
 def draw_poly(data, coordinates, color):
     img = Image.fromarray(data)
