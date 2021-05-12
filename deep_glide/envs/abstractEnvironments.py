@@ -44,7 +44,7 @@ class Config:
     render_range =( (-7500, 7500), (-7500, 7500)) # for 90m hgt srtm_38_03.hgt
     min_distance_terrain = 50
     ground_distance_radius = 900
-    runway_dimension = np.array([900,60])
+    runway_dimension = np.array([900,60]) # Landebahn Länge x Breite
     initial_props={
         'ic/terrain-elevation-ft': 0.00000001, # 0.0 erzeugt wohl NaNs
         'ic/p-rad_sec': 0,
@@ -249,19 +249,14 @@ class AbstractJSBSimEnv(gym.Env, ABC):
 
     def render_start_goal(self, alpha):
         xs,ys, _ = self.start
-        xg1,yg1, _ = self.goal            
-        xgo, ygo, _ = self.goal_orientation            
-        runway_len = self.config.runway_dimension[0]
-        xg2 = xg1+xgo*runway_len
-        yg2 = yg1+ygo*runway_len
-        xarrow1, yarrow1 = np.array([xg2,yg2]) - rotate_vect_2d(self.goal_orientation[0:2],np.radians(30))*runway_len/5
-        xarrow2, yarrow2 = np.array([xg2,yg2]) - rotate_vect_2d(self.goal_orientation[0:2],np.radians(-30))*runway_len/5
-        print('xarr={}, yarr={}'.format(xarrow1, yarrow1))
-        print(np.array([xg2,yg2]))
-        print(rotate_vect_2d(self.goal_orientation[0:2],np.radians(30))*runway_len/10)
         plt.plot(xs,ys,'mo', alpha=alpha)
-        plt.plot([xg1,xg2],[yg1,yg2], 'm-', alpha=alpha)
-        plt.plot([xarrow1,xg2,xarrow2],[yarrow1,yg2,yarrow2], 'm-', alpha=alpha)
+        xs_arr = [x[0] for x in self.runway.arrow]
+        ys_arr = [x[1] for x in self.runway.arrow]
+        plt.plot(xs_arr, ys_arr, 'm-', alpha=alpha)
+        xs_runway = [x[0] for x in self.runway.rectangle] + [self.runway.rectangle[0][0]]
+        ys_runway = [x[1] for x in self.runway.rectangle] + [self.runway.rectangle[0][1]]
+        plt.plot(xs_runway, ys_runway, 'm-', alpha=alpha)
+        xg1,yg1, _ = self.goal            
         plt.plot(xg1,yg1,'m.', alpha=alpha)            
 
 

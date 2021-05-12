@@ -443,6 +443,78 @@ class JSBSimEnv_v10 (JSBSimEnv_v6):
     def _reward(self):
         return super()._reward()/5
 
+class JSBSimEnv_v11(JSBSimEnv_v6):
+
+    env_name = 'JSBSim-v11'
+
+    '''
+    Wie JSBSim_v6, aber positiven Reward gibt es nur bei Ankunft innerhalb des Rollfeldes.
+    '''
+
+    RANGE_ANGLE = math.pi/5 # in rad | Toleranz des Anflugwinkels, bei dem ein positiver Reward gegeben wird
+
+    def __init__(self,save_trajectory = False):
+        super().__init__()
+        self.config.runway_dimension = np.array([900,300]) # Länge x Breite
+
+
+    def _checkFinalConditions(self):
+        if self.pos[2]<=self.terrain.altitude(self.pos[0], self.pos[1])+ self.config.min_distance_terrain:
+            logging.debug('   Terrain: {:.1f} <= {:.1f}+{:.1f}'.format(self.pos[2],
+                    self.terrain.altitude(self.pos[0], self.pos[1]), self.config.min_distance_terrain))
+            self.terminal_condition = TerminationCondition.HitTerrain
+        else:             
+            self.terminal_condition = TerminationCondition.NotFinal
+        if self.terminal_condition != TerminationCondition.NotFinal \
+           and self.terrain.runway.is_inside(self.pos[0:2]) \
+           and (abs(angle_between(self.goal_orientation[0:2], self.speed[0:2])) < self.RANGE_ANGLE) :
+            logging.debug('Arrived at Target')
+            self.terminal_condition = TerminationCondition.Arrived
+        return self.terminal_condition
+
+    def _reward(self):
+        self._checkFinalConditions()
+        rew = 0        
+        delta_angle = abs(angle_between(self.goal_orientation[0:2], self.speed[0:2]))
+        if self.terminal_condition == TerminationCondition.NotFinal:
+            dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
+            energy = self._get_energy()
+            if energy == 0:
+                rew = 0
+            else:
+                rew = - dist_target / energy * 29.10
+        elif self.terminal_condition == TerminationCondition.Arrived: 
+            rew_dist_length = (1-self.terrain.runway.dist_length_relative(self.pos[0:2]))*2.5
+            rew_dist_width = (1-self.terrain.runway.dist_width_relative(self.pos[0:2]))*2.5
+            rew_angle = (self.RANGE_ANGLE-delta_angle) / self.RANGE_ANGLE * 5
+            rew = rew_angle + rew_dist_length + rew_dist_width
+        else:
+            rew_dist_length = min(1-self.terrain.runway.dist_length_relative(self.pos[0:2]),0)/3000/1.3
+            rew_dist_width = min(1-self.terrain.runway.dist_width_relative(self.pos[0:2]),0)/3000/1.3
+            rew_angle = min(self.RANGE_ANGLE-delta_angle,0)
+            rew = rew_angle + rew_dist_length + rew_dist_width
+        if not np.isfinite(rew).all():
+            logging.error('Infinite number detected in state. Replacing with zero')
+            logging.error('State: {} reward: {}'.format(self._get_state(), rew))
+            rew = np.nan_to_num(rew, neginf=0, posinf=0)
+        return rew  
+
+
+class JSBSimEnv_v12(JSBSimEnv_v11):
+
+    env_name = 'JSBSim-v12'
+
+    '''
+    Wie JSBSim_v11, aber schmalere Rollbahn
+    '''
+
+    RANGE_ANGLE = math.pi/5 # in rad | Toleranz des Anflugwinkels, bei dem ein positiver Reward gegeben wird
+
+    def __init__(self,save_trajectory = False):
+        super().__init__()
+        self.config.runway_dimension = np.array([900,60]) # Länge x Breite
+
+
 
 register(
     id='JSBSim-v0',
@@ -518,5 +590,19 @@ register(
     id='JSBSim-v10',
     entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v10',
     max_episode_steps=9999999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSim-v11',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v11',
+    max_episode_steps=999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSim-v12',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v12',
+    max_episode_steps=999,
     reward_threshold=1000.0,
 )

@@ -1,5 +1,5 @@
 from abc import abstractclassmethod, abstractmethod
-from deep_glide.utils import elevation_asc2hgt, draw_poly
+from deep_glide.utils import elevation_asc2hgt, draw_poly, rotate_vect_2d
 import jsbsim
 import os
 from typing import Dict, List
@@ -150,29 +150,54 @@ class Runway:
     def __init__(self, position, direction, dimension):
         self.dir = np.array(direction) # flight direction
         self.dim = np.array(dimension) # length, width of touchdown zone
-        self.pos = np.array(position) # Middel of Brick One
+        self.pos = np.array(position) # Center of runway
+        self.calc_rectangle()
+        self.calc_arrow()
+
 
     def is_inside(self, p):
-        length, width = self.dim
-        p1, p2, p3, p4 = self.get_rectangle()
-        dist_length = np.dot ((p3-p2)/np.linalg.norm(p3-p2), p3-p)
-        inside_length = (0<=dist_length<=length)
-        dist_width = np.dot ((p2-p1)/np.linalg.norm(p2-p1), p2-p)
-        inside_width = (0<=dist_width<=width)
+        inside_length = self.dist_length_relative(p) <= 1
+        inside_width = self.dist_width_relative(p) <= 1
         return inside_length and inside_width
 
-    def get_rectangle(self):
+    def dist_length_relative(self, p):
+        length, _ = self.dim
+        ap1 = self.arrow[0]        
+        return abs(np.dot ((self.pos-ap1)/np.linalg.norm(self.pos-ap1), self.pos-p)) / (length/2)
+
+    def dist_width_relative(self, p):
+        _, width = self.dim 
+        ap2 = self.arrow[1]
+        rp3 = self.rectangle[2]
+        return abs(np.dot ((ap2-rp3)/np.linalg.norm(ap2-rp3), ap2-p)) / (width/2)
+    
+    
+    def calc_rectangle(self):
         length, width = self.dim
         dir90 = np.array([self.dir[1], -self.dir[0]])
-        p1 = self.pos - dir90 * width/2
-        p2 = self.pos + dir90 * width/2
+        p1 = self.pos - self.dir * length/2 - dir90 * width/2
+        p2 = self.pos - self.dir * length/2 + dir90 * width/2
         p3 = p2 + self.dir * length
         p4 = p3 - dir90 * width
-        return p1, p2, p3, p4
+        self.rectangle = p1, p2, p3, p4
+
+    def calc_arrow(self):
+        rp1, rp2, rp3, rp4 = self.rectangle
+        _, width = self.dim
+        p1 = rp1 + (rp2-rp1)*0.5
+        p2 = rp4 + (rp3-rp4)*0.5
+        p3 = rp3 +(rp2-rp3)/np.linalg.norm(rp2-rp3)* width
+        p4 = rp4 +(rp1-rp4)/np.linalg.norm(rp1-rp4)* width
+        self.arrow = p1, p2, p3, p2, p4
+
+
+    def get_rectangle(self):
+        return self.rectangle
 
 class TerrainClass:
     
     map_offset: List = None
+    runway: Runway
 
     @abstractmethod
     def define_map_for_plotting(self, xrange, yrange):
