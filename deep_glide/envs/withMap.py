@@ -28,8 +28,8 @@ class JSBSimEnv2D_v0(JSBSimEnv_v0):
 
     metadata = {'render.modes': ['human']}
 
-    OBS_WIDTH = 32
-    OBS_HEIGHT = 32
+    OBS_WIDTH = 36
+    OBS_HEIGHT = 36
     z_range = (1000, 1500)
 
     terrain: TerrainClass
@@ -133,6 +133,27 @@ class JSBSimEnv2D_v2(JSBSimEnv2D_v1):
             rew = np.nan_to_num(rew, neginf=0, posinf=0)
         return rew  
 
+class JSBSimEnv2D_v3(JSBSimEnv2D_v2): 
+    env_name = 'JSBSim2D-v3'
+
+    '''
+    Wie JSBSim_v5, aber mit Map.    
+    '''
+
+    def __init__(self):
+        super().__init__()
+        self.observation_space = self.observation_space = spaces.Box(
+            low=-math.inf, high=math.inf, shape=(1,37, 36)
+        )
+
+
+    def _get_state(self):
+        # super observation : 32x32 + 15x1 --> 17x1 anhängen und dann in 33x32 umformen
+        state = np.concatenate((super()._get_state(), np.zeros(21)))
+        state = np.reshape(state, (1,37,36))
+        return state
+
+
 register(
     id='JSBSim2D-v0',
     entry_point='deep_glide.envs.withMap:JSBSimEnv2D_v0',
@@ -147,10 +168,16 @@ register(
     reward_threshold=1000.0,
 )
 
-
 register(
     id='JSBSim2D-v2',
     entry_point='deep_glide.envs.withMap:JSBSimEnv2D_v2',
+    max_episode_steps=999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSim2D-v3',
+    entry_point='deep_glide.envs.withMap:JSBSimEnv2D_v3',
     max_episode_steps=999,
     reward_threshold=1000.0,
 )
