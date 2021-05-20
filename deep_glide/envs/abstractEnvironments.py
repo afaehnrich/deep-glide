@@ -15,6 +15,7 @@ import math
 import os
 from datetime import date
 import time
+import torch
 
 class TerminationCondition(Enum):
     NotFinal = 0
@@ -142,6 +143,7 @@ class AbstractJSBSimEnv(gym.Env, ABC):
     def __init__(self, save_trajectory = False):           
         super().__init__()
         np.random.seed()
+        #print('PyTorch Version: ', torch.__version__)
         self.sim = Sim(sim_dt = 0.02)
         self.save_trajectory = save_trajectory  
         self.m_kg = self.sim.sim['inertia/mass-slugs'] * 14.5939029372

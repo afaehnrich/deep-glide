@@ -423,6 +423,7 @@ class JSBSimEnv_v9 (JSBSimEnv_v5):
         self.wind = np.array([0,0,0])
         while np.linalg.norm(self.wind)==0:
             self.wind = np.random.uniform(-1,1,3)
+            self.wind[2] = 0
         self.wind = self.wind/np.linalg.norm(self.wind)*np.random.uniform(0,30)
         self.sim.set_wind(self.wind)
         return super().reset()

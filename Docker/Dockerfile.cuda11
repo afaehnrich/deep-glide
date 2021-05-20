@@ -1,0 +1,31 @@
+FROM stablebaselines/rl-baselines3-zoo
+
+# Keeps Python from generating .pyc files in the container
+ENV PYTHONDONTWRITEBYTECODE=1
+# Fehler wegen falscher Codierung verhindern
+ENV PYTHONIOENCODING = utf8
+
+# Turns off buffering for easier container logging
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR ${CODE_DIR}
+RUN python3 -m pip install wheel gym numpy matplotlib jsbsim toml datetime Flask
+#JSBSim git clonen, damit wir Zugriff auf die Flugzeugmodelle haben
+RUN git clone https://github.com/JSBSim-Team/jsbsim.git
+
+# kompatible Versionen von stable-baselines3 und rl-baselines3-zoo von Git holen. Sonst gibts Fehlermeldung.
+RUN python3 -m pip uninstall stable-baselines3 torch -y
+RUN python3 -m pip install torch==1.8.1+cu111 torchvision==0.9.1+cu111 torchaudio==0.8.1 -f https://download.pytorch.org/whl/torch_stable.html
+RUN git clone https://github.com/DLR-RM/rl-baselines3-zoo.git
+RUN rm -r stable-baselines3
+RUN git clone https://github.com/DLR-RM/stable-baselines3.git
+
+ADD . ${CODE_DIR}/deep-glide
+# environment registration für die eigenen environemnts in rl-zoo integrieren
+RUN cp -v -rt ${CODE_DIR}/rl-baselines3-zoo ${CODE_DIR}/deep-glide/rl_zoo/*
+# deep-glide als Python-Modul installieren
+RUN pip install -e ./stable-baselines3
+RUN pip install -e ./deep-glide
+WORKDIR ${CODE_DIR}/deep-glide
+# Agent trainieren
+CMD /bin/bash

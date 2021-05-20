@@ -1,0 +1,30 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "ddpg3"
+  namespace: titze
+  labels:
+    app: "ddpg3"
+spec:
+  template:
+    metadata:
+      name: deep-glide-test
+    spec:
+      containers:
+      - name: ddpg3
+        image: 'afaehnrich/deep-glide:latest'
+        command: ["python3"]
+        args: ["../rl-baselines3-zoo/train.py", "--algo", "sac", "--env", "JSBSim-v6", "-n", "100000", "-optimize", "--n-trials", "1000", "--n-jobs", "4", "--num-threads", "4", "--sampler", "random", "--pruner", "median"]          
+        resources:
+          limits:
+            nvidia.com/gpu: "1"
+          requests:
+            nvidia.com/gpu: "1" 
+        volumeMounts:
+            - name: nfs
+              mountPath: "/root/code/deep-glide/logs"
+      volumes:
+          - name: nfs
+            persistentVolumeClaim:
+              claimName: titze-results-pvc
+      restartPolicy: OnFailure
