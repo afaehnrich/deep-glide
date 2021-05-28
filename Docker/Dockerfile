@@ -60,5 +60,6 @@ RUN cp -v -rt ${CODE_DIR}/rl-baselines3-zoo ${CODE_DIR}/deep-glide/rl_zoo/*
 RUN pip install -e ./stable-baselines3
 RUN pip install -e ./deep-glide
 WORKDIR ${CODE_DIR}/deep-glide
+RUN mkdir -p logs
 # Agent trainieren
 CMD /bin/bash
