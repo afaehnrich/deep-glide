@@ -1,8 +1,9 @@
 from enum import auto
 from deep_glide.envs.withoutMap import JSBSimEnv_v0
 import numpy as np
-from deep_glide.sim import Sim, SimState, TerrainBlockworld, TerrainClass, TerrainOcean
+from deep_glide.sim import Sim, SimState, TerrainBlockworld, TerrainClass, TerrainOcean, TerrainSingleBlocks
 from deep_glide.envs.abstractEnvironments import AbstractJSBSimEnv, TerminationCondition
+import deep_glide.envs.rewardFunctions as rewardFunctions
 from deep_glide.deprecated.properties import Properties, PropertylistToBox
 from deep_glide.utils import Normalizer, Normalizer2D
 from gym.envs.registration import register
@@ -100,44 +101,15 @@ class JSBSimEnv2D_v2(JSBSimEnv2D_v1):
 
 
     RANGE_DIST = 500 # in m | Umkreis um das Ziel in Metern, bei dem es einen positiven Reward gibt
-    
-    def _checkFinalConditions(self):
-        if self.pos[2]<=self.terrain.altitude(self.pos[0], self.pos[1])+ self.config.min_distance_terrain:
-            logging.debug('   Terrain: {:.1f} <= {:.1f}+{:.1f}'.format(self.pos[2],
-                    self.terrain.altitude(self.pos[0], self.pos[1]), self.config.min_distance_terrain))
-            self.terminal_condition = TerminationCondition.HitTerrain
-        else: self.terminal_condition = TerminationCondition.NotFinal
-        if self.terminal_condition != TerminationCondition.NotFinal \
-           and np.linalg.norm(self.goal[0:2] - self.pos[0:2])<self.RANGE_DIST:
-            logging.debug('Arrived at Target')
-            self.terminal_condition = TerminationCondition.Arrived
-        return self.terminal_condition
-
-    def _reward(self):
-        self._checkFinalConditions()
-        rew = 0
-        dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
-        if self.terminal_condition == TerminationCondition.NotFinal:            
-            energy = self._get_energy()
-            if energy == 0:
-                rew = 0
-            else:
-                rew = - dist_target / energy * 29.10
-        elif self.terminal_condition == TerminationCondition.Arrived: 
-            rew = (self.RANGE_DIST-dist_target)/self.RANGE_DIST*10
-        else:
-            rew = min(self.RANGE_DIST-dist_target,0)/3000
-        if not np.isfinite(rew).all():
-            logging.error('Infinite number detected in state. Replacing with zero')
-            logging.error('State: {} reward: {}'.format(self._get_state(), rew))
-            rew = np.nan_to_num(rew, neginf=0, posinf=0)
-        return rew  
+    _checkFinalConditions = rewardFunctions._checkFinalConditions_v5
+    _reward = rewardFunctions._reward_v5
 
 class JSBSimEnv2D_v3(JSBSimEnv2D_v2): 
     env_name = 'JSBSim2D-v3'
 
     '''
     Wie JSBSim_v5, aber mit Map.    
+    Observation Shape angepasst für CNNs anstelle von MLPs
     '''
 
     def __init__(self):
@@ -158,51 +130,68 @@ class JSBSimEnv2D_v4(JSBSimEnv2D_v2):
 
     '''
     Wie JSBSim_v6, aber mit Map.
+    Ergebnis: Kein Lernen, selbst mit Ocean-Map. Wird der State auf den normalen State ohne Map reduziert, funktioniert alles super.
     '''
 
     RANGE_DIST = 500 # in m | Umkreis um das Ziel in Metern, bei dem es einen positiven Reward gibt
     RANGE_ANGLE = math.pi/5 # in rad | Toleranz des Anflugwinkels, bei dem ein positiver Reward gegeben wird
+    _checkFinalConditions = rewardFunctions._checkFinalConditions_v6
+    _reward = rewardFunctions._reward_v6
+
+    # Hier ein Test mit Ocean-Terrain. Blockworld funktioniert nicht so gut.
+    def _init_terrain(self):
+        # self.terrain = TerrainOcean()
+        self.terrain = TerrainBlockworld()
+        self.calc_map_mean_std()
+
+    # def __init__(self):
+    #     super().__init__()                
+    #     self._init_terrain()
+    #     self.observation_space = spaces.Box( low = -math.inf, high = math.inf,
+    #                 shape=(15,), dtype=np.float32)
 
 
-    def _checkFinalConditions(self):
-        if self.pos[2]<=self.terrain.altitude(self.pos[0], self.pos[1])+ self.config.min_distance_terrain:
-            logging.debug('   Terrain: {:.1f} <= {:.1f}+{:.1f}'.format(self.pos[2],
-                    self.terrain.altitude(self.pos[0], self.pos[1]), self.config.min_distance_terrain))
-            self.terminal_condition = TerminationCondition.HitTerrain
-        else: 
-            self.terminal_condition = TerminationCondition.NotFinal
-        if self.terminal_condition != TerminationCondition.NotFinal \
-           and (np.linalg.norm(self.goal[0:2] - self.pos[0:2]) < self.RANGE_DIST) \
-           and (abs(angle_between(self.goal_orientation[0:2], self.speed[0:2])) < self.RANGE_ANGLE) :
-            logging.debug('Arrived at Target')
-            self.terminal_condition = TerminationCondition.Arrived
-        return self.terminal_condition
+    # # mit dieser get_state-Variante sollte das Env der Version JSBSim_v6 entsprechen.
+    # def _get_state(self):
+    #     state = super()._get_state()
+    #     return state[-15:]
 
-    def _reward(self):
-        self._checkFinalConditions()
-        rew = 0
-        dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
-        delta_angle = abs(angle_between(self.goal_orientation[0:2], self.speed[0:2]))
-        if self.terminal_condition == TerminationCondition.NotFinal:
-            energy = self._get_energy()
-            if energy == 0:
-                rew = 0
-            else:
-                rew = - dist_target / energy * 29.10
-        elif self.terminal_condition == TerminationCondition.Arrived: 
-            rew_dist = (self.RANGE_DIST-dist_target)/self.RANGE_DIST*5
-            rew_angle = (self.RANGE_ANGLE-delta_angle) / self.RANGE_ANGLE * 5
-            rew = rew_angle + rew_dist
-        else:
-            rew_dist = min(self.RANGE_DIST-dist_target,0)/3000/1.3
-            rew_angle = min(self.RANGE_ANGLE-delta_angle,0)
-            rew = rew_angle + rew_dist
-        if not np.isfinite(rew).all():
-            logging.error('Infinite number detected in state. Replacing with zero')
-            logging.error('State: {} reward: {}'.format(self._get_state(), rew))
-            rew = np.nan_to_num(rew, neginf=0, posinf=0)
-        return rew  
 
+class JSBSimEnv2D_v5(JSBSimEnv2D_v4): 
+    env_name = 'JSBSim2D-v5'
+    '''
+    Wie JSBSim2D-v4, aber mit nur einem Block pro episode. Der liegt dafür genau zwischen Start und Ziel
+
+    '''
+
+    def _init_terrain(self):
+        self.terrain = TerrainSingleBlocks()
+        self.calc_map_mean_std()
+
+    def reset(self):
+        obs = super().reset()
+        self.terrain.reset_map()
+        self.terrain.create_block_between(self.start[:2], self.goal[0:2])
+        return obs
+        
+class JSBSimEnv2D_v5(JSBSimEnv2D_v2): 
+    env_name = 'JSBSim2D-v6'
+    '''
+    Wie JSBSim2D-v2, aber mit nur einem Block pro episode. Der liegt dafür genau zwischen Start und Ziel
+    (Da JSBSim2D-v4 leider nicht funktioniert)
+
+    '''
+
+    def _init_terrain(self):
+        self.terrain = TerrainSingleBlocks()
+        self.calc_map_mean_std()
+
+    def reset(self):
+        obs = super().reset()
+        self.terrain.reset_map()
+        self.terrain.create_block_between(self.start[:2], self.goal[0:2])
+        return obs
+        
 
 register(
     id='JSBSim2D-v0',
@@ -235,6 +224,20 @@ register(
 register(
     id='JSBSim2D-v4',
     entry_point='deep_glide.envs.withMap:JSBSimEnv2D_v4',
+    max_episode_steps=999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSim2D-v5',
+    entry_point='deep_glide.envs.withMap:JSBSimEnv2D_v5',
+    max_episode_steps=999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSim2D-v6',
+    entry_point='deep_glide.envs.withMap:JSBSimEnv2D_v6',
     max_episode_steps=999,
     reward_threshold=1000.0,
 )

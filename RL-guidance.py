@@ -11,7 +11,7 @@ from deep_glide.pid import PID_angle, PID
 from deep_glide.sim import Sim,  SimState, TerrainClass, TerrainOcean, SimTimer, TerrainClass90m, TerrainClass30m, TerrainBlockworld
 from deep_glide.envs.withoutMap import JSBSimEnv_v0, JSBSimEnv_v1, JSBSimEnv_v2, JSBSimEnv_v4, JSBSimEnv_v5, JSBSimEnv_v6,JSBSimEnv_v8, JSBSimEnv_v11
 from deep_glide.envs.rawInputs import JSBSimRaw_v0
-from deep_glide.envs.withMap import JSBSimEnv2D_v0, JSBSimEnv2D_v3
+from deep_glide.envs.withMap import JSBSimEnv2D_v0, JSBSimEnv2D_v3, JSBSimEnv2D_v5
 from typing import Dict, List, Tuple
 from array import array
 import matplotlib.pyplot as plt
@@ -27,7 +27,7 @@ from datetime import datetime
 
 class RL_train:
 
-    simHandler =  JSBSimEnv2D_v3() #JSBSimEnv2D_v0()
+    simHandler =  JSBSimEnv2D_v5() #JSBSimEnv2D_v0()
     BATCH_SIZE = 128
 
     def init_rl_agents(self, action_space, obs_space, load_models):
@@ -216,9 +216,9 @@ rl_trainer : RL_train = None
 from stable_baselines3.common import env_checker
 
 def main():
-    env = JSBSimEnv2D_v3()
-    env_checker.check_env(env)
-    exit()
+    # env = JSBSimEnv2D_v0()
+    # env_checker.check_env(env)
+    # exit()
     np.random.seed()
     global rl_trainer
     state_start = SimState()

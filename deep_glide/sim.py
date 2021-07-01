@@ -1,4 +1,7 @@
 from abc import abstractclassmethod, abstractmethod
+from warnings import catch_warnings
+
+from traits.trait_types import Int
 from deep_glide.utils import elevation_asc2hgt, draw_poly, rotate_vect_2d
 import jsbsim
 import os
@@ -84,9 +87,9 @@ class Sim():
  
     def get_wind(self):
         #ENU
-        return np.array( [self.sim['atmosphere/wind-east-fps'],
-                          self.sim['atmosphere/wind-north-fps'],
-                          -self.sim['atmosphere/wind-down-fps']])
+        return np.array( [self.sim['atmosphere/total-wind-east-fps'],
+                          self.sim['atmosphere/total-wind-north-fps'],
+                          -self.sim['atmosphere/total-wind-down-fps']])
 
     def set_wind(self, wind: np.array):
         #ENU
@@ -188,6 +191,9 @@ class Runway:
         p2 = rp4 + (rp3-rp4)*0.5
         p3 = rp3 +(rp2-rp3)/np.linalg.norm(rp2-rp3)* width
         p4 = rp4 +(rp1-rp4)/np.linalg.norm(rp1-rp4)* width
+        width = max(width, 300)
+        p3 = p2+(p3-p2)/np.linalg.norm(p3-p2)*width
+        p4 = p2+(p4-p2)/np.linalg.norm(p4-p2)*width
         self.arrow = p1, p2, p3, p2, p4
 
 
@@ -264,16 +270,23 @@ class TerrainClass30m(TerrainClass):
 
     def altitude(self, x,y):
         id_x, id_y = self.pixel_from_coordinate((x,y))
-        return self.data[id_x, id_y]
+        try:
+            return self.data[id_x, id_y]
+        except:
+            return 0.
 
     def max_altitude(self, x, y, radius):
         id_x, id_y = self.pixel_from_coordinate((x,y))
         delta = int(radius / self.resolution)
-        return self.data[id_x-delta:id_x+delta, id_y-delta:id_y+delta].max()
+        try:
+            return self.data[id_x-delta:id_x+delta, id_y-delta:id_y+delta].max()
+        except:
+            return np.zeros((1,1))
 
 
     def pixel_from_coordinate(self, point):
-        x, y = point
+        point = np.nan_to_num(point)
+        x, y = point           
         id_x = int(round(x / self.resolution)) + self.map_offset[0]
         id_y = int(round(y / self.resolution)) + self.map_offset[1]
         return id_x, id_y
@@ -281,13 +294,20 @@ class TerrainClass30m(TerrainClass):
     def map_around_position(self, x_m, y_m, width_px, height_px):
         off_x, off_y = self.map_offset
         x_low = int(round(x_m / self.resolution)) + off_x - width_px//2 
-        y_low = int(round(y_m / self.resolution)) + off_y - height_px//2 
-        return self.data[x_low: x_low+width_px, y_low:y_low+height_px]
+        y_low = int(round(y_m / self.resolution)) + off_y - height_px//2
+        try:
+            return self.data[x_low: x_low+width_px, y_low:y_low+height_px]
+        except:
+            return np.zeros((1,1))
+
 
     def get_map(self, p1, p2):
         x1, y1 = self.pixel_from_coordinate(p1)
         x2, y2 = self.pixel_from_coordinate(p2)
-        return self.data[x1: x2, y1:y2]
+        try:
+            return self.data[x1: x2, y1:y2]
+        except:
+            return np.zeros((1,1))
 
     def set_runway(self, runway:Runway):
         self.runway = runway
@@ -355,6 +375,65 @@ class TerrainBlockworld(TerrainClass90m):
                 height = self.data[x1:x2, y1:y2].min() + random.choice(self.block_heights)
                 self.data[x1:x2, y1:y2] = np.maximum(self.data[x1:x2, y1:y2], np.full(block_dim, height))
                 created +=1
+
+
+class TerrainSingleBlocks(TerrainClass90m):
+    
+    def __init__(self, ocean=False):
+        if ocean:
+            self.data = np.zeros((self.row_length,self.row_length))
+        else:
+            super().__init__()        
+        self.blocks = np.zeros((self.row_length,self.row_length))   
+        self.map_offset =  [self.row_length//2, self.row_length//2]
+        self.data_bak = self.data.copy()
+
+    block_lens = np.array([5,10,15])
+    block_heights = [8000.] #[500., 1000., 2000., 4000.]
+    block_width = 4
+    spacing = 2
+
+    def reset_map(self):
+        self.data = self.data_bak.copy()
+
+
+    def create_block_between(self, P1, P2):
+        len = np.linalg.norm(P2-P1)
+        if len < self.block_width + self.spacing:
+            return False
+        dir = (P2-P1)/len
+        P1space = P1+dir*self.spacing
+        P2space = P2-dir*self.spacing
+        px1, py1 = self.pixel_from_coordinate(P1space)
+        px2, py2 = self.pixel_from_coordinate(P2space)
+        dx = abs(px2-px1)
+        dy = abs(py2-py1)
+        if px1>px2: px1, px2 = px2, px1
+        if py1>py2: py1, py2 = py2, py1
+        bLen: Int
+        bWidth: Int
+        if dx > dy and dx > self.block_width:
+            bLen = np.random.choice(self.block_lens) 
+            bWidth = self.block_width
+        elif dy > self.block_width:
+            bWidth = np.random.choice(self.block_lens) 
+            bLen = self.block_width
+        else:
+            return False
+        for i in range(0,100):
+            p = np.random.uniform(0,1)
+            if i>=99: p = 0.5
+            cx, cy = self.pixel_from_coordinate(P1space+(P2space-P1space)*p)            
+            x1 = int(cx - bWidth*np.random.uniform(0,1))
+            y1 = int(cy - bLen*np.random.uniform(0,1))
+            x2 = x1 + bWidth
+            y2 = y1 + bLen
+            if px1<x1<px2 and px1<x2<px2 and py1<y1<py2 and py1<y2<py2:
+                break
+        height = np.random.choice(self.block_heights)
+        height_sum = self.data[x1:x2, y1:y2].min() + height
+        self.data[x1:x2, y1:y2] = np.maximum(self.data[x1:x2, y1:y2], np.full((bWidth, bLen), height_sum))
+        return True
 
 class TerrainOcean(TerrainClass90m):
     def __init__(self):

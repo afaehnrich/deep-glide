@@ -11,6 +11,7 @@ from deep_glide import plotting
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from matplotlib import pyplot as plt
+import matplotlib as mpl
 import math
 import os
 from datetime import date
@@ -87,6 +88,8 @@ class AbstractJSBSimEnv(gym.Env, ABC):
     episode = 0
     start_date = date.today()
 
+    _invalid_state = False
+
     @abstractmethod
     def _checkFinalConditions(self):
         pass
@@ -97,6 +100,14 @@ class AbstractJSBSimEnv(gym.Env, ABC):
 
     @abstractmethod
     def _reward(self):
+        pass
+
+    @abstractmethod
+    def _info(self):
+        pass
+
+    @abstractmethod
+    def _info_final(self):
         pass
 
     mean = np.array([ 0., 0., 0.,
@@ -132,6 +143,7 @@ class AbstractJSBSimEnv(gym.Env, ABC):
             logging.error('Infinite number detected in state. Replacing with zero')
             logging.error('State: {}'.format(state))
             state = np.nan_to_num(state, neginf=0, posinf=0)
+            self._invalid_state = True
         state = (state -self.mean) / self.std
         #state = self.stateNormalizer.normalize(state.view().reshape((1,15)))
         # state = state.view.reshape((15,))
@@ -171,17 +183,27 @@ class AbstractJSBSimEnv(gym.Env, ABC):
                 self.sim.sim['fcs/elevator-cmd-norm'] = self.pid_pitch(self.sim.sim['attitude/pitch-rad'], pitch_target)                  
             #if timer_pid_slip.check_reset(self.sim.time):
             #    self.sim.sim['fcs/rudder-cmd-norm'] = self.pid_slip(self.sim.sim['velocities/v-fps'], 0)
-            done = self._done()
+            done = self._done() or self._invalid_state
             if self.timer_goto.check_reset(self.sim.time):# and not goto_arrived:
                 if self.save_trajectory: self.trajectory.append(self.pos)
                 self.new_state = self._get_state()
                 reward = self._reward()
-                return self.new_state, reward, done, {}
+                if not np.isfinite(reward).all():
+                    logging.error('Infinite number detected in reward. Replacing with zero')                    
+                    reward =-10
+                    done = True
+                info = self._info() # info = {}
+                return self.new_state, reward, done, info
             if done:
                 if self.save_trajectory: self.trajectory.append(self.pos)
                 self.new_state = self._get_state()
                 reward = self._reward()
-                return self.new_state, reward, done, {}
+                if not np.isfinite(reward).all() or self._invalid_state:
+                    logging.error('Infinite number detected in reward or state. Replacing with zero')                    
+                    reward =-10
+                    done = True
+                info = { **self._info(), **self._info_final()} # info = {}
+                return self.new_state, reward, done, info
 
     def random_position(self, h_range, radius, x_range, y_range, z_range):
         rx1,rx2 = x_range
@@ -208,6 +230,7 @@ class AbstractJSBSimEnv(gym.Env, ABC):
                 y += dy    
         
     def reset(self) -> object: #->observation
+        self._invalid_state = False
         np.random.seed()
         if self.episode_rendered: 
             self.save_plot()
@@ -247,56 +270,89 @@ class AbstractJSBSimEnv(gym.Env, ABC):
         self.episode +=1
         return self._get_state()
     
-    plot_fig: plt.figure = None
+    plot_fig: plt.Figure = None
 
     def render_start_goal(self, alpha):
         xs,ys, _ = self.start
-        plt.plot(xs,ys,'mo', alpha=alpha)
+        self.ax1.plot(xs,ys,'mo', alpha=alpha)
         xs_arr = [x[0] for x in self.runway.arrow]
         ys_arr = [x[1] for x in self.runway.arrow]
-        plt.plot(xs_arr, ys_arr, 'm-', alpha=alpha)
+        self.ax1.plot(xs_arr, ys_arr, 'm-', alpha=alpha)
         xs_runway = [x[0] for x in self.runway.rectangle] + [self.runway.rectangle[0][0]]
         ys_runway = [x[1] for x in self.runway.rectangle] + [self.runway.rectangle[0][1]]
-        plt.plot(xs_runway, ys_runway, 'm-', alpha=alpha)
+        self.ax1.plot(xs_runway, ys_runway, 'm-', alpha=alpha)
         xg1,yg1, _ = self.goal            
-        plt.plot(xg1,yg1,'m.', alpha=alpha)            
+        self.ax1.plot(xg1,yg1,'m.', alpha=alpha)
+        self.ax1.plot([xs,xg1],[ys,yg1],'b-')         
 
 
+    ax1: plt.Axes
 
     def render(self, mode='human'):        
         if self.plot_fig is None:
-            self.plot_fig = plt.figure('render 2D', figsize=(10, 10), dpi=80)            
+            cm = 1/2.54  # centimeters in inches
+            self.plot_fig, (self.ax2, self.ax1, self.ax3) = plt.subplots(1,3, gridspec_kw={'width_ratios': (0.5,12,0.5)}, figsize=(20*cm, 16*cm), dpi=80)
+            self.plot_fig.tight_layout(pad=5.0)   
+            #self.ax2.plot([1],[2], cmap='gist_earth', vmin=-1000, vmax = 4000)
             plt.ion()
             plt.show()
         if not self.episode_rendered:            
-            self.plot_fig = plt.figure('render 2D', figsize=(10, 10), dpi=80)            
-            plt.clf()
-            (x1,x2), (y1,y2) = self.config.render_range
+            self.ax1.clear()
+            self.ax2.clear()
+            self.ax3.clear()
+            plot_dist = np.linalg.norm(self.start[0:2]-self.goal[0:2]) * 1.5
+            #(x1,x2), (y1,y2) = self.config.render_range
+            (x1,x2), (y1,y2) = (-plot_dist, plot_dist), (-plot_dist, plot_dist)
             res = self.terrain.resolution
             img = self.terrain.get_map((x1,y1), (x2,y2))
             from scipy import ndimage
             img = ndimage.rotate(img, 90)
-            plt.imshow(img, cmap='gist_earth', vmin=-1000, vmax = 4000, origin='upper', extent=(x1-res/2,x2-res/2,y1-res/2,y2-res/2))
+            im = self.ax1.imshow(img, cmap='gist_earth', vmin=-1000, vmax = 4000, origin='upper', extent=(x1-res/2,x2-res/2,y1-res/2,y2-res/2))
+            self.ax1.set_ylabel("Entfernung vom Startpunkt in Nord-Süd-Richtung in m")
+            self.ax1.set_xlabel("Entfernung vom Startpunkt in Wet-Ost-Richtung in m")
+            cmap = mpl.cm.get_cmap('gist_earth')
+            cmap_norm = mpl.colors.Normalize(vmin=-1000, vmax = 4000)
+            cb = mpl.colorbar.ColorbarBase(self.ax3, cmap = cmap, norm = cmap_norm, orientation = 'vertical')            
+            # cb = plt.colorbar(im,cax = self.ax3)
+            self.ax3.yaxis.set_ticks_position('left')
+            self.ax3.yaxis.set_label_position('left')
+            self.ax3.yaxis.set_ticks([-1000,0,4000])
+            cb.set_label("Terrainhöhe in m")
+            z_max = self.start[2]
+            z_min = self.goal[2]        
+            self.cmap = mpl.cm.get_cmap('autumn')
+            self.cmap_norm = mpl.colors.Normalize(vmin=z_min, vmax = z_max)
+            cb2 = mpl.colorbar.ColorbarBase(self.ax2, cmap = self.cmap, norm = self.cmap_norm, orientation = 'vertical')
+            self.ax2.yaxis.set_ticks_position('left')
+            self.ax2.yaxis.set_label_position('left')
+            self.ax2.yaxis.set_ticks([z_min,z_max])
+            cb2.set_label("Flughöhe in m")
+            # cb2 = mpl.colorbar.ColorbarBase(self.ax2, cmap=, norm=normalize, orientation='vertical')
             self.render_start_goal(1)
             self.plot_oldxy = self.pos
             self.episode_rendered = True
-            self.render_time = time.time()-1
-        plt.figure(self.plot_fig.number)        
+            self.render_time = time.time()-1            
         x1, y1, z1 = self.plot_oldxy
-        x2, y2, z2 = self.pos
-        z_max  = self.start[2]
-        z_min = self.goal[2]        
-        color_z = (z2-z_min)/(z_max-z_min)
-        color_z = 1-max(min(color_z, 1),0)
-        plt.plot([x1, x2],[y1, y2], '-', color=(1,color_z,0))
+        x2, y2, z2 = self.pos               
+        self.ax1.plot([x1, x2],[y1, y2], '-', c=self.cmap(self.cmap_norm(z2)) )
         if time.time()-self.render_time>0.05:
             plt.gcf().canvas.draw_idle()
             plt.gcf().canvas.start_event_loop(0.0001)
             self.render_time = time.time()
         self.plot_oldxy = self.pos
+        if mode=="rgb_array":
+            self.plot_fig.canvas.draw()
+            image_from_plot = np.frombuffer(self.plot_fig.canvas.tostring_rgb(), dtype=np.uint8)
+            image_from_plot = image_from_plot.reshape(self.plot_fig.canvas.get_width_height()[::-1] + (3,))
+            return image_from_plot
+        return self.plot_fig
+
+
 
 
     def save_plot(self):
+        return
+        # save plot in enjopy2.py
         self.render_time = time.time()-1
         self.render()          
         dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])

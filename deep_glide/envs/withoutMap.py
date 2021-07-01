@@ -2,6 +2,7 @@ from enum import auto
 import numpy as np
 from deep_glide.sim import Sim, SimState, TerrainBlockworld, TerrainClass, TerrainClass90m, TerrainOcean, SimTimer
 from deep_glide.envs.abstractEnvironments import AbstractJSBSimEnv, TerminationCondition
+import deep_glide.envs.rewardFunctions as rewardFunctions
 from deep_glide.utils import Normalizer, ensure_dir, angle_between
 from gym.envs.registration import register
 
@@ -95,20 +96,6 @@ class JSBSimEnv_v0(AbstractJSBSimEnv):
     #     state = state.view().reshape((15,))        
     #     return state
 
-    def _checkFinalConditions(self):
-        if np.linalg.norm(self.goal[0:2] - self.pos[0:2])<500:
-            logging.debug('Arrived at Target')
-            self.terminal_condition = TerminationCondition.Arrived
-        elif self.pos[2]<self.goal[2]-10:
-            logging.debug('   Too low: ',self.pos[2],' < ',self.goal[2]-10)
-            self.terminal_condition = TerminationCondition.LowerThanTarget
-        elif self.pos[2]<=self.terrain.altitude(self.pos[0], self.pos[1])+ self.config.min_distance_terrain:
-            logging.debug('   Terrain: {:.1f} <= {:.1f}+{:.1f}'.format(self.pos[2],
-                    self.terrain.altitude(self.pos[0], self.pos[1]), self.config.min_distance_terrain))
-            self.terminal_condition = TerminationCondition.HitTerrain
-        else: self.terminal_condition = TerminationCondition.NotFinal
-        return self.terminal_condition
-
     def _done(self):
         self._checkFinalConditions()
         if self.terminal_condition == TerminationCondition.NotFinal:
@@ -116,18 +103,24 @@ class JSBSimEnv_v0(AbstractJSBSimEnv):
         else:
             return True
 
-    def _reward(self):
-        self._checkFinalConditions()
-        if self.terminal_condition == TerminationCondition.NotFinal:
-            dir_target = self.goal-self.pos
-            v_aircraft = self.speed
-            angle = angle_between(dir_target[0:2], v_aircraft[0:2])
-            if angle == 0: return 0.
-            return -abs(angle_between(dir_target[0:2], v_aircraft[0:2]))/np.math.pi / 100.       
-        if self.terminal_condition == TerminationCondition.Arrived: return +10.
-        dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
-        return -dist_target/3000.
+    _checkFinalConditions = rewardFunctions.finalConditionsDistanceOnly
 
+    _reward = rewardFunctions.rewardDistanceOnly
+
+    def _info(self):
+        wind = self.sim.get_wind()
+        return {            
+            'wind_e': wind[0],
+            'wind_n': wind[1],
+            'wind_u': wind[2]
+        }    
+        
+    def _info_final(self):
+        return {
+            'initial_distance': np.linalg.norm(self.goal[0:2]-self.start[0:2]),
+            'distance': np.linalg.norm(self.goal[0:2]-self.pos[0:2]),
+            'delta_approach_angle': abs(angle_between(self.goal_orientation[0:2], self.speed[0:2]))
+        }        
 
 class JSBSimEnv_v1(JSBSimEnv_v0): 
 
@@ -136,29 +129,8 @@ class JSBSimEnv_v1(JSBSimEnv_v0):
     '''
     In diesem Env ist der Reward abhängig davon, wie nahe der Agent dem Ziel gekommen ist und in welchem Winkel zum Ziel die Ankunft erfolgte.
     Die Anflughöhe wird nicht bewertet.
-    '''
-    
-    # Rewards ohne den Final Reward bei 25 Episoden mit random actions:
-    # Reward not final min=-0.00999 max=-0.00000, mean=-0.00489, med=-0.00483 total per episode=-0.40984
-    # Der reward für den fall NotFinal wird so bemessen, dass er im Schnitt etwa -0.005 pro step beträgt.
-    # Ein zu großer negativer reward im NotFinal-Fall führt zu suizifalem Verhalten.
-    def _reward(self):
-        self._checkFinalConditions()
-        if self.terminal_condition == TerminationCondition.NotFinal:
-            dir_target = self.goal-self.pos
-            angle = angle_between(dir_target[0:2], self.speed[0:2])
-            if angle == 0: return 0.
-            rew = -abs(angle_between(dir_target[0:2], self.speed[0:2]))/np.math.pi / 100.       
-        elif self.terminal_condition == TerminationCondition.Arrived: 
-            rew = 10. - abs(angle_between(self.goal_orientation[0:2], self.speed[0:2])/np.math.pi*5)
-        else:
-            dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
-            rew = -dist_target/3000. - abs(angle_between(self.goal_orientation[0:2], self.speed[0:2])/np.math.pi*5)
-        if not np.isfinite(rew).all():
-            logging.error('Infinite number detected in state. Replacing with zero')
-            logging.error('State: {} reward: {}'.format(self._get_state(), rew))
-            rew = np.nan_to_num(rew, neginf=0, posinf=0)
-        return rew
+    '''    
+    _reward = rewardFunctions.rewardDistanceAndAngleV1
 
 class JSBSimEnv_v2(JSBSimEnv_v1): 
 
@@ -172,34 +144,7 @@ class JSBSimEnv_v2(JSBSimEnv_v1):
     schnell mit möglichst wenig Energieverlust erreicht werden.
     Höhe und Anflugwinkel am Ziel spielen keine Rolle.
     '''
-    # Energy und 
-    # Energy min=61089841.11 max=115960677.29, mean=88758480.71, med=88374223.58 
-    # Distance min=82.33 max=11876.13, mean=5153.14, med=5060.25 
-    # Der reward für den fall NotFinal wird so bemessen, dass er im Schnitt etwa -0.005 pro step beträgt.
-    # Ein zu großer negativer reward im NotFinal-Fall führt zu suizifalem Verhalten.
-    # Bei steigender mittlerer Entfernung zum Ziel muss der NotFinal-reward vermutlich weiter reduziert werden,
-    # so dass weiterhin für random actions pro Episode ein NotFinal-reward von ca. -0.5 erzielt wird.
- 
-    def _reward(self):
-        self._checkFinalConditions()
-        rew = 0
-        if self.terminal_condition == TerminationCondition.NotFinal:
-            dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
-            energy = self._get_energy()
-            if energy == 0:
-                rew = 0
-            else:
-                rew = - dist_target / energy * 29.10
-        elif self.terminal_condition == TerminationCondition.Arrived: 
-            rew = 10.#  - abs(angle_between(self.goal_dir[0:2], self.speed[0:2])/np.math.pi*5)
-        else:
-            dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
-            rew = -dist_target/3000.# - angle_between(self.goal_dir[0:2], self.speed[0:2])/np.math.pi*5
-        if not np.isfinite(rew).all():
-            logging.error('Infinite number detected in state. Replacing with zero')
-            logging.error('State: {} reward: {}'.format(self._get_state(), rew))
-            rew = np.nan_to_num(rew, neginf=0, posinf=0)
-        return rew  
+    _reward = rewardFunctions.rewardDistanceEnergy       
 
 class JSBSimEnv_v3(JSBSimEnv_v1): 
 
@@ -236,11 +181,7 @@ class JSBSimEnv_v3(JSBSimEnv_v1):
             rew = 10. - abs(angle_between(self.goal_orientation[0:2], self.speed[0:2])/np.math.pi*5)
         else:
             dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
-            rew = -dist_target/3000. - abs(angle_between(self.goal_orientation[0:2], self.speed[0:2])/np.math.pi*5)
-        if not np.isfinite(rew).all():
-            logging.error('Infinite number detected in state. Replacing with zero')
-            logging.error('State: {} reward: {}'.format(self._get_state(), rew))
-            rew = np.nan_to_num(rew, neginf=0, posinf=0)
+            rew = -dist_target/3000. - abs(angle_between(self.goal_orientation[0:2], self.speed[0:2])/np.math.pi*5)        
         return rew  
 
 class JSBSimEnv_v4(JSBSimEnv_v3): 
@@ -265,11 +206,7 @@ class JSBSimEnv_v4(JSBSimEnv_v3):
             rew = 10. - abs(angle_between(self.goal_orientation[0:2], self.speed[0:2])/np.math.pi)*15.
         else:
             dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
-            rew = -dist_target/3000. - abs(angle_between(self.goal_orientation[0:2], self.speed[0:2])/np.math.pi)*15.
-        if not np.isfinite(rew).all():
-            logging.error('Infinite number detected in state. Replacing with zero')
-            logging.error('State: {} reward: {}'.format(self._get_state(), rew))
-            rew = np.nan_to_num(rew, neginf=0, posinf=0)
+            rew = -dist_target/3000. - abs(angle_between(self.goal_orientation[0:2], self.speed[0:2])/np.math.pi)*15.        
         return rew  
 
 
@@ -285,39 +222,9 @@ class JSBSimEnv_v5(JSBSimEnv_v2):
     Der Anflugwinkel am Ziel spielt keine Rolle.
     '''
 
-    RANGE_DIST = 500 # in m | Umkreis um das Ziel in Metern, bei dem es einen positiven Reward gibt
-    
-    def _checkFinalConditions(self):
-        if self.pos[2]<=self.terrain.altitude(self.pos[0], self.pos[1])+ self.config.min_distance_terrain:
-            logging.debug('   Terrain: {:.1f} <= {:.1f}+{:.1f}'.format(self.pos[2],
-                    self.terrain.altitude(self.pos[0], self.pos[1]), self.config.min_distance_terrain))
-            self.terminal_condition = TerminationCondition.HitTerrain
-        else: self.terminal_condition = TerminationCondition.NotFinal
-        if self.terminal_condition != TerminationCondition.NotFinal \
-           and np.linalg.norm(self.goal[0:2] - self.pos[0:2])<self.RANGE_DIST:
-            logging.debug('Arrived at Target')
-            self.terminal_condition = TerminationCondition.Arrived
-        return self.terminal_condition
-
-    def _reward(self):
-        self._checkFinalConditions()
-        rew = 0
-        dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
-        if self.terminal_condition == TerminationCondition.NotFinal:            
-            energy = self._get_energy()
-            if energy == 0:
-                rew = 0
-            else:
-                rew = - dist_target / energy * 29.10
-        elif self.terminal_condition == TerminationCondition.Arrived: 
-            rew = (self.RANGE_DIST-dist_target)/self.RANGE_DIST*10
-        else:
-            rew = min(self.RANGE_DIST-dist_target,0)/3000
-        if not np.isfinite(rew).all():
-            logging.error('Infinite number detected in state. Replacing with zero')
-            logging.error('State: {} reward: {}'.format(self._get_state(), rew))
-            rew = np.nan_to_num(rew, neginf=0, posinf=0)
-        return rew  
+    RANGE_DIST = 500 # in m | Umkreis um das Ziel in Metern, bei dem es einen positiven Reward gibt    
+    _checkFinalConditions = rewardFunctions._checkFinalConditions_v5
+    _reward = rewardFunctions._reward_v5
 
 class JSBSimEnv_v6(JSBSimEnv_v5):
 
@@ -330,45 +237,8 @@ class JSBSimEnv_v6(JSBSimEnv_v5):
 
     RANGE_DIST = 500 # in m | Umkreis um das Ziel in Metern, bei dem es einen positiven Reward gibt
     RANGE_ANGLE = math.pi/5 # in rad | Toleranz des Anflugwinkels, bei dem ein positiver Reward gegeben wird
-
-    def _checkFinalConditions(self):
-        if self.pos[2]<=self.terrain.altitude(self.pos[0], self.pos[1])+ self.config.min_distance_terrain:
-            logging.debug('   Terrain: {:.1f} <= {:.1f}+{:.1f}'.format(self.pos[2],
-                    self.terrain.altitude(self.pos[0], self.pos[1]), self.config.min_distance_terrain))
-            self.terminal_condition = TerminationCondition.HitTerrain
-        else: 
-            self.terminal_condition = TerminationCondition.NotFinal
-        if self.terminal_condition != TerminationCondition.NotFinal \
-           and (np.linalg.norm(self.goal[0:2] - self.pos[0:2]) < self.RANGE_DIST) \
-           and (abs(angle_between(self.goal_orientation[0:2], self.speed[0:2])) < self.RANGE_ANGLE) :
-            logging.debug('Arrived at Target')
-            self.terminal_condition = TerminationCondition.Arrived
-        return self.terminal_condition
-
-    def _reward(self):
-        self._checkFinalConditions()
-        rew = 0
-        dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
-        delta_angle = abs(angle_between(self.goal_orientation[0:2], self.speed[0:2]))
-        if self.terminal_condition == TerminationCondition.NotFinal:
-            energy = self._get_energy()
-            if energy == 0:
-                rew = 0
-            else:
-                rew = - dist_target / energy * 29.10
-        elif self.terminal_condition == TerminationCondition.Arrived: 
-            rew_dist = (self.RANGE_DIST-dist_target)/self.RANGE_DIST*5
-            rew_angle = (self.RANGE_ANGLE-delta_angle) / self.RANGE_ANGLE * 5
-            rew = rew_angle + rew_dist
-        else:
-            rew_dist = min(self.RANGE_DIST-dist_target,0)/3000/1.3
-            rew_angle = min(self.RANGE_ANGLE-delta_angle,0)
-            rew = rew_angle + rew_dist
-        if not np.isfinite(rew).all():
-            logging.error('Infinite number detected in state. Replacing with zero')
-            logging.error('State: {} reward: {}'.format(self._get_state(), rew))
-            rew = np.nan_to_num(rew, neginf=0, posinf=0)
-        return rew  
+    _checkFinalConditions = rewardFunctions._checkFinalConditions_v6
+    _reward = rewardFunctions._reward_v6
 
 class JSBSimEnv_v7(JSBSimEnv_v0):
 
@@ -412,21 +282,21 @@ class JSBSimEnv_v8(JSBSimEnv_v6):
         print('reward={}'.format(rew))
         return rew
 
-class JSBSimEnv_v9 (JSBSimEnv_v5):
+class JSBSimEnv_v9 (JSBSimEnv_v6):
 
     env_name ='JSBSim-v9'
     '''
-    Wie JSBSim-v5, aber mit Wind 0..30 knoten in beliebige Richtung
+    Wie JSBSim-v6, aber mit Wind 0..30 knoten = 0..50 fps in beliebige Richtung
     '''
 
     def reset(self):
-        self.wind = np.array([0,0,0])
-        while np.linalg.norm(self.wind)==0:
-            self.wind = np.random.uniform(-1,1,3)
-            self.wind[2] = 0
-        self.wind = self.wind/np.linalg.norm(self.wind)*np.random.uniform(0,30)
-        self.sim.set_wind(self.wind)
-        return super().reset()
+        state = super().reset()
+        # Grundwind 0..30 Knoten
+        # erst magnitude, dann psi - sont funktioniert es nicht
+        self.sim.sim['atmosphere/wind-mag-fps'] = np.random.uniform(0,50)
+        self.sim.sim['atmosphere/psiw-rad'] = np.random.uniform(0,3.14)
+        return state
+
 
 
 class JSBSimEnv_v10 (JSBSimEnv_v6):
@@ -493,11 +363,7 @@ class JSBSimEnv_v11(JSBSimEnv_v6):
             rew_dist_length = min(1-self.terrain.runway.dist_length_relative(self.pos[0:2]),0)/3000/1.3
             rew_dist_width = min(1-self.terrain.runway.dist_width_relative(self.pos[0:2]),0)/3000/1.3
             rew_angle = min(self.RANGE_ANGLE-delta_angle,0)
-            rew = rew_angle + rew_dist_length + rew_dist_width
-        if not np.isfinite(rew).all():
-            logging.error('Infinite number detected in state. Replacing with zero')
-            logging.error('State: {} reward: {}'.format(self._get_state(), rew))
-            rew = np.nan_to_num(rew, neginf=0, posinf=0)
+            rew = rew_angle + rew_dist_length + rew_dist_width        
         return rew  
 
 
@@ -514,6 +380,53 @@ class JSBSimEnv_v12(JSBSimEnv_v11):
     def __init__(self,save_trajectory = False):
         super().__init__()
         self.config.runway_dimension = np.array([900,60]) # Länge x Breite
+
+class JSBSimEnv_v13 (JSBSimEnv_v9):
+
+    env_name ='JSBSim-v13'
+    '''
+    Wie JSBSim-v9, aber mit Wind nach turbulence-model
+    '''
+
+    def reset(self):
+        state = super().reset()
+        # Grundwind 0..30 Knoten
+        # erst magnitude, dann psi - sont funktioniert es nicht
+        self.sim.sim['atmosphere/wind-mag-fps'] = np.random.uniform(0,50)
+        self.sim.sim['atmosphere/psiw-rad'] = np.random.uniform(0,3.14)
+
+        # Turbulenzen
+        # https://jsbsim-team.github.io/jsbsim/classJSBSim_1_1FGWinds.html
+        self.sim.sim['atmosphere/turb-type'] = 4 #ttTustin (Dryden spectrum)
+        severity = np.random.choice([0,1,2])
+        speeds ={ 0:0, 1:7, 2:12, 3:25, 4:50, 5:63, 6:75, 7:90}
+        self.sim.sim['atmosphere/turbulence/milspec/severity'] = severity
+        self.sim.sim['atmosphere/turbulence/milspec/windspeed_at_20ft_AGL-fps'] = speeds[severity]
+        return state
+
+
+class JSBSimEnv_v14 (JSBSimEnv_v9):
+
+    env_name ='JSBSim-v13'
+    '''
+    Wie JSBSim-v9, aber NUR Turbulenzen, kein stetiger Wind. Die Turbulenzen sind dafür heftiger
+    '''
+
+    def reset(self):
+        state = super().reset()
+        # Grundwind 0..30 Knoten
+        # erst magnitude, dann psi - sont funktioniert es nicht
+        self.sim.sim['atmosphere/wind-mag-fps'] = 0
+        self.sim.sim['atmosphere/psiw-rad'] = 0
+
+        # Turbulenzen
+        # https://jsbsim-team.github.io/jsbsim/classJSBSim_1_1FGWinds.html
+        self.sim.sim['atmosphere/turb-type'] = 4 #ttTustin (Dryden spectrum)
+        severity = np.random.choice([0,1,2])
+        speeds ={ 0:0, 1:7, 2:12, 3:25, 4:50, 5:63, 6:75, 7:90}
+        self.sim.sim['atmosphere/turbulence/milspec/severity'] = severity
+        self.sim.sim['atmosphere/turbulence/milspec/windspeed_at_20ft_AGL-fps'] = speeds[severity]
+        return state
 
 
 
@@ -604,6 +517,20 @@ register(
 register(
     id='JSBSim-v12',
     entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v12',
+    max_episode_steps=999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSim-v13',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v13',
+    max_episode_steps=999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSim-v14',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v14',
     max_episode_steps=999,
     reward_threshold=1000.0,
 )

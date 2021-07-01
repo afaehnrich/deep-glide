@@ -19,7 +19,7 @@ class TerminationCondition(Enum):
     Ground = 5
     OutOfBounds = 6
 
-class AbstractJSBSimEnv2D(gym.Env, ABC):
+class AbstractJSBSimEnv2DXY(gym.Env, ABC):
     
     terrain: TerrainClass = TerrainOcean()
     goal = np.array([0.,0.,0.])
