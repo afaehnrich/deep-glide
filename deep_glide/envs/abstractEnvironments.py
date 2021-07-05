@@ -30,6 +30,7 @@ class TerminationCondition(Enum):
 class Config:
     start_ground_distance = (1000,4000)
     goal_ground_distance = (100,100)
+    speed_range = (80,100)
     x_range_start = (0, 0)
     y_range_start = (0, 0)
     z_range_start = (0, 8000)  
@@ -52,6 +53,8 @@ class Config:
         'ic/p-rad_sec': 0,
         'ic/q-rad_sec': 0,
         'ic/r-rad_sec': 0,
+        'ic/v-fps': 0,
+        'ic/w-fps': 0,
         'ic/roc-fpm': 0,
         'gear/gear-pos-norm': 0.0, # landing gear raised
         'gear/gear-cmd-norm': 0.0, # lnding gear raised
@@ -245,13 +248,16 @@ class AbstractJSBSimEnv(gym.Env, ABC):
         self.goal_orientation = np.random.uniform(.01, 1., 3) * np.random.choice([-1,1],3)
         self.goal_orientation[2] = 0
         self.goal_orientation = self.goal_orientation / np.linalg.norm(self.goal_orientation)
+        speed_start = np.random.uniform(self.config.speed_range[0], self.config.speed_range[1])
+        psi_start = np.random.uniform(0,360)
         self.runway = Runway(self.goal[0:2], self.goal_orientation[0:2],self.config.runway_dimension)
         self.terrain.set_runway(self.runway)
         self.pos_offset = self.start.copy()
         self.pos_offset[2] = 0
         self.trajectory=[]   
         self.initial_state.position = self.start
-        self._reset_sim_state(self.initial_state)
+        self.initial_state
+        self._reset_sim_state(self.initial_state, speed_start, psi_start)
         #PID-Regler und Timer
         self.pid_pitch = PID_angle('PID pitch', p=-1.5, i=-0.05, d=0, time=0, angle_max=2*np.math.pi, out_min=-1.0, out_max=1.0, anti_windup=1)
         self.pid_roll = PID_angle( 'PID roll', p=17.6, i=0.01, d=35.2, time=0, angle_max=2*np.math.pi, out_min=-1.0, out_max=1.0, anti_windup=1)
@@ -400,9 +406,11 @@ class AbstractJSBSimEnv(gym.Env, ABC):
         # plt.plot()
 
 
-    def _reset_sim_state(self, state: SimState, engine_on: bool = False):
+    def _reset_sim_state(self, state: SimState, speed, psi, engine_on: bool = False):
         state.position = state.position
         state.props['ic/h-sl-ft'] = state.position[2]/0.3048
+        state.props['ic/u-fps'] = speed
+        state.props['ic/psi-true-rad'] = psi
         self.sim.reinitialise({**self.config.initial_props, **state.props})
         if engine_on:
             self.sim.start_engines()
