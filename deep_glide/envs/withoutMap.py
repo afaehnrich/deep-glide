@@ -226,13 +226,53 @@ class JSBSimEnv_v5(JSBSimEnv_v2):
     _checkFinalConditions = rewardFunctions._checkFinalConditions_v5
     _reward = rewardFunctions._reward_v5
 
+class JSBSimEnv_v5_1s(JSBSimEnv_v5):
+    env_name = 'JSBSimv5_1second-v0'
+    '''
+    Wie JSBSimEnv_v5, aber Handlung jede Sekunde statt alle 5 Sekunden
+    '''
+    def reset(self) -> object: #->observation
+        ret = super().reset()
+        self.timer_goto = SimTimer(1.)
+        return ret
+
+class JSBSimEnv_v5_2s(JSBSimEnv_v5):
+    env_name = 'JSBSimv5_2seconds-v0'
+    '''
+    Wie JSBSimEnv_v5, aber Handlung alle 2 statt alle 5 Sekunden
+    '''
+    def reset(self) -> object: #->observation
+        ret = super().reset()
+        self.timer_goto = SimTimer(2.)
+        return ret
+
+class JSBSimEnv_v5_3s(JSBSimEnv_v5):
+    env_name = 'JSBSimv5_3seconds-v0'
+    '''
+    Wie JSBSimEnv_v5, aber Handlung alle 3 statt alle 5 Sekunden
+    '''
+    def reset(self) -> object: #->observation
+        ret = super().reset()
+        self.timer_goto = SimTimer(3.)
+        return ret
+
+class JSBSimEnv_v5_4s(JSBSimEnv_v5):
+    env_name = 'JSBSimv5_4seconds-v0'
+    '''
+    Wie JSBSimEnv_v5, aber Handlung alle 4 statt alle 5 Sekunden
+    '''
+    def reset(self) -> object: #->observation
+        ret = super().reset()
+        self.timer_goto = SimTimer(4.)
+        return ret
+
 class JSBSimEnv_v6(JSBSimEnv_v5):
 
     env_name = 'JSBSim-v6'
 
     '''
     Dieses Env kombiniert v5 (Reward nur, wenn am Boden angekommen) 
-    mit v4 (Final reward abhängig vom Anflugwinkel)
+    mit v4 (Final reward abhängig vom Anflugwinkel) 
     '''
 
     RANGE_DIST = 500 # in m | Umkreis um das Ziel in Metern, bei dem es einen positiven Reward gibt
@@ -468,6 +508,35 @@ register(
 register(
     id='JSBSim-v5',
     entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5',
+    max_episode_steps=999,
+    reward_threshold=1000.0,
+)
+
+
+register(
+    id='JSBSimv5_1second-v0',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5_1s',
+    max_episode_steps=999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSimv5_2seconds-v0',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5_2s',
+    max_episode_steps=999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSimv5_3seconds-v0',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5_3s',
+    max_episode_steps=999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSimv5_4seconds-v0',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5_4s',
     max_episode_steps=999,
     reward_threshold=1000.0,
 )
