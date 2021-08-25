@@ -13,6 +13,7 @@ from matplotlib import pyplot as plt
 from scipy.interpolate import UnivariateSpline
 import os
 from datetime import date
+from typing import Tuple
 
 class JSBSimEnv_v0(AbstractJSBSimEnv):
     env_name = 'JSBSim-v0'
@@ -231,40 +232,125 @@ class JSBSimEnv_v5_1s(JSBSimEnv_v5):
     '''
     Wie JSBSimEnv_v5, aber Handlung jede Sekunde statt alle 5 Sekunden
     '''
+    goto_time = 1.
+
     def reset(self) -> object: #->observation
         ret = super().reset()
-        self.timer_goto = SimTimer(1.)
+        self.timer_goto = SimTimer(self.goto_time)
         return ret
 
-class JSBSimEnv_v5_2s(JSBSimEnv_v5):
+class JSBSimEnv_v5_2s(JSBSimEnv_v5_1s):
     env_name = 'JSBSimv5_2seconds-v0'
-    '''
-    Wie JSBSimEnv_v5, aber Handlung alle 2 statt alle 5 Sekunden
-    '''
-    def reset(self) -> object: #->observation
-        ret = super().reset()
-        self.timer_goto = SimTimer(2.)
-        return ret
+    goto_time = 2.
 
 class JSBSimEnv_v5_3s(JSBSimEnv_v5):
     env_name = 'JSBSimv5_3seconds-v0'
-    '''
-    Wie JSBSimEnv_v5, aber Handlung alle 3 statt alle 5 Sekunden
-    '''
-    def reset(self) -> object: #->observation
-        ret = super().reset()
-        self.timer_goto = SimTimer(3.)
-        return ret
+    goto_time = 3.
 
 class JSBSimEnv_v5_4s(JSBSimEnv_v5):
     env_name = 'JSBSimv5_4seconds-v0'
+    goto_time = 4.
+
+class JSBSimEnv_v5_10s(JSBSimEnv_v5):
+    env_name = 'JSBSimv5_10seconds-v0'
+    goto_time = 10.
+
+class JSBSimEnv_v5_20s(JSBSimEnv_v5):
+    env_name = 'JSBSimv5_20seconds-v0'
+    goto_time = 20.
+
+class JSBSimEnv_v5_20km(JSBSimEnv_v5):
+    env_name = 'JSBSimv5_20km-v0'
     '''
-    Wie JSBSimEnv_v5, aber Handlung alle 4 statt alle 5 Sekunden
+    Wie JSBSimEnv_v5, aber Ziel kann bis zu 20 km weit weg sein (nicht nur 5km)
     '''
-    def reset(self) -> object: #->observation
-        ret = super().reset()
-        self.timer_goto = SimTimer(4.)
-        return ret
+    def __init__(self):
+        super().__init__(self)
+        self.config.x_range_goal = (-20000, 20000)
+        self.config.y_range_goal = (-20000, 20000)  
+
+class JSBSimEnv_v5_vartime_v0(JSBSimEnv_v5):
+    env_name = 'JSBSimv5_vartime-v0'
+    '''
+    Wie JSBSimEnv_v5, aber die Zeit zwischen den Handlungen ist variabel und wird vom Agenten selbst bestimmt.
+    '''
+    action_space = spaces.Box( low = -1., high = 1., shape=(4,), dtype=np.float32)
+    goto_timer_constraints = (.5, 10.) # Minimale und maximale Zeit zwischen zwei steps
+
+    def step(self, action)->Tuple[object, float, bool, dict]: # ->observation, reward, done, info        
+        t_min, t_max = self.goto_timer_constraints
+        self.timer_goto._interval = t_min + (action[3]+1)/2*(t_max-t_min)
+        return super().step(action)
+
+class JSBSimEnv_v5_1s_v1(JSBSimEnv_v5_1s):
+    env_name = 'JSBSimv5_1second-v1'
+    '''
+    Wie JSBSimv5_1second-v0, aber der Reward für non-final steps ist proportional zur vergangenen Simulationszeit.
+    '''
+    _reward = rewardFunctions._reward_v5_time_proportional
+
+class JSBSimEnv_v5_2s_v1(JSBSimEnv_v5_2s):
+    env_name = 'JSBSimv5_2seconds-v1'
+    _reward = rewardFunctions._reward_v5_time_proportional
+
+class JSBSimEnv_v5_3s_v1(JSBSimEnv_v5_3s):
+    env_name = 'JSBSimv5_3seconds-v1'
+    _reward = rewardFunctions._reward_v5_time_proportional
+
+class JSBSimEnv_v5_4s_v1(JSBSimEnv_v5_4s):
+    env_name = 'JSBSimv5_4seconds-v1'
+    _reward = rewardFunctions._reward_v5_time_proportional
+
+class JSBSimEnv_v5_10s_v1(JSBSimEnv_v5_10s):
+    env_name = 'JSBSimv5_10seconds-v1'
+    _reward = rewardFunctions._reward_v5_time_proportional
+
+class JSBSimEnv_v5_20s_v1(JSBSimEnv_v5_20s):
+    env_name = 'JSBSimv5_20seconds-v1'
+    _reward = rewardFunctions._reward_v5_time_proportional
+
+class JSBSimEnv_v5_vartime_v1(JSBSimEnv_v5_vartime_v0):
+    env_name = 'JSBSimv5_vartime-v1'
+    _reward = rewardFunctions._reward_v5_time_proportional
+
+
+
+class JSBSimEnv_v5_1s_v2(JSBSimEnv_v5_1s_v1):
+    env_name = 'JSBSimv5_1second-v2'
+    '''
+    Wie JSBSimv5_1second-v1, aber der Reward 5x höherer Reward bei non-final steps
+    '''
+    _reward = rewardFunctions._reward_v5_time_proportional_x5
+
+class JSBSimEnv_v5_2s_v2(JSBSimEnv_v5_2s_v1):
+    env_name = 'JSBSimv5_2seconds-v2'
+    _reward = rewardFunctions._reward_v5_time_proportional_x5
+
+class JSBSimEnv_v5_3s_v2(JSBSimEnv_v5_3s_v1):
+    env_name = 'JSBSimv5_3seconds-v2'
+    _reward = rewardFunctions._reward_v5_time_proportional_x5
+
+class JSBSimEnv_v5_4s_v2(JSBSimEnv_v5_4s_v1):
+    env_name = 'JSBSimv5_4seconds-v2'
+    _reward = rewardFunctions._reward_v5_time_proportional_x5
+
+class JSBSimEnv_v5_10s_v2(JSBSimEnv_v5_10s_v1):
+    env_name = 'JSBSimv5_10seconds-v2'
+    _reward = rewardFunctions._reward_v5_time_proportional_x5
+
+class JSBSimEnv_v5_20s_v2(JSBSimEnv_v5_20s_v1):
+    env_name = 'JSBSimv5_20seconds-v2'
+    _reward = rewardFunctions._reward_v5_time_proportional_x5
+
+class JSBSimEnv_v5_vartime_v2(JSBSimEnv_v5_vartime_v1):
+    env_name = 'JSBSimv5_vartime-v2'
+    _reward = rewardFunctions._reward_v5_time_proportional_x5
+
+class JSBSimEnv_v5_vartime_v3(JSBSimEnv_v5_vartime_v1):
+    env_name = 'JSBSimv5_vartime-v3'
+    goto_timer_constraints = (2., 10.) # Minimale und maximale Zeit zwischen zwei steps
+    _reward = rewardFunctions._reward_v5_time_proportional
+
 
 class JSBSimEnv_v6(JSBSimEnv_v5):
 
@@ -279,6 +365,29 @@ class JSBSimEnv_v6(JSBSimEnv_v5):
     RANGE_ANGLE = math.pi/5 # in rad | Toleranz des Anflugwinkels, bei dem ein positiver Reward gegeben wird
     _checkFinalConditions = rewardFunctions._checkFinalConditions_v6
     _reward = rewardFunctions._reward_v6
+
+class JSBSimEnv_v6_1s(JSBSimEnv_v6):
+    env_name = 'JSBSimv6_1second-v0'
+    '''
+    Wie JSBSimEnv_v6, aber Handlung jede Sekunde statt alle 5 Sekunden
+    '''
+    def reset(self) -> object: #->observation
+        ret = super().reset()
+        self.timer_goto = SimTimer(1.)
+        return ret
+
+class JSBSimEnv_v6_vartime_v0(JSBSimEnv_v6):
+    env_name = 'JSBSimv6_vartime-v0'
+    '''
+    Wie JSBSimEnv_v6, aber die Zeit zwischen den Handlungen ist variabel und wird vom Agenten selbst bestimmt.
+    '''
+    action_space = spaces.Box( low = -1., high = 1., shape=(4,), dtype=np.float32)
+    goto_timer_constraints = (.5, 10.) # Minimale und maximale Zeit zwischen zwei steps
+
+    def step(self, action)->Tuple[object, float, bool, dict]: # ->observation, reward, done, info        
+        t_min, t_max = self.goto_timer_constraints
+        self.timer_goto._interval = t_min + (action[3]+1)/2*(t_max-t_min)
+        return super().step(action)
 
 class JSBSimEnv_v7(JSBSimEnv_v0):
 
@@ -473,99 +582,246 @@ class JSBSimEnv_v14 (JSBSimEnv_v9):
 register(
     id='JSBSim-v0',
     entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v0',
-    max_episode_steps=999,
+    max_episode_steps=99999,
     reward_threshold=1000.0,
 )
 
 register(
     id='JSBSim-v1',
     entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v1',
-    max_episode_steps=999,
+    max_episode_steps=99999,
     reward_threshold=1000.0,
 )
 
 register(
     id='JSBSim-v2',
     entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v2',
-    max_episode_steps=999,
+    max_episode_steps=99999,
     reward_threshold=1000.0,
 )
 
 register(
     id='JSBSim-v3',
     entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v3',
-    max_episode_steps=999,
+    max_episode_steps=99999,
     reward_threshold=1000.0,
 )
 
 register(
     id='JSBSim-v4',
     entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v4',
-    max_episode_steps=999,
+    max_episode_steps=99999,
     reward_threshold=1000.0,
 )
 
 register(
     id='JSBSim-v5',
     entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5',
-    max_episode_steps=999,
+    max_episode_steps=99999,
     reward_threshold=1000.0,
 )
-
 
 register(
     id='JSBSimv5_1second-v0',
     entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5_1s',
-    max_episode_steps=999,
+    max_episode_steps=99999,
     reward_threshold=1000.0,
 )
 
 register(
     id='JSBSimv5_2seconds-v0',
     entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5_2s',
-    max_episode_steps=999,
+    max_episode_steps=99999,
     reward_threshold=1000.0,
 )
 
 register(
     id='JSBSimv5_3seconds-v0',
     entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5_3s',
-    max_episode_steps=999,
+    max_episode_steps=99999,
     reward_threshold=1000.0,
 )
 
 register(
     id='JSBSimv5_4seconds-v0',
     entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5_4s',
-    max_episode_steps=999,
+    max_episode_steps=99999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSimv5_10seconds-v0',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5_10s',
+    max_episode_steps=99999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSimv5_20seconds-v0',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5_20s',
+    max_episode_steps=99999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSimv5_20km-v0',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5_20km',
+    max_episode_steps=99999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSimv5_vartime-v0',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5_vartime_v0',
+    max_episode_steps=99999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSimv5_1second-v1',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5_1s_v1',
+    max_episode_steps=99999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSimv5_2seconds-v1',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5_2s_v1',
+    max_episode_steps=99999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSimv5_3seconds-v1',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5_3s_v1',
+    max_episode_steps=99999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSimv5_4seconds-v1',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5_4s_v1',
+    max_episode_steps=99999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSimv5_10seconds-v1',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5_10s_v1',
+    max_episode_steps=99999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSimv5_20seconds-v1',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5_20s_v1',
+    max_episode_steps=99999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSimv5_vartime-v1',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5_vartime_v1',
+    max_episode_steps=99999,
+    reward_threshold=1000.0,
+)
+
+
+register(
+    id='JSBSimv5_1second-v2',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5_1s_v2',
+    max_episode_steps=99999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSimv5_2seconds-v2',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5_2s_v2',
+    max_episode_steps=99999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSimv5_3seconds-v2',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5_3s_v2',
+    max_episode_steps=99999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSimv5_4seconds-v2',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5_4s_v2',
+    max_episode_steps=99999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSimv5_10seconds-v2',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5_10s_v2',
+    max_episode_steps=99999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSimv5_20seconds-v2',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5_20s_v2',
+    max_episode_steps=99999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSimv5_vartime-v2',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5_vartime_v2',
+    max_episode_steps=99999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSimv5_vartime-v3',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5_vartime_v3',
+    max_episode_steps=99999,
     reward_threshold=1000.0,
 )
 
 register(
     id='JSBSim-v6',
     entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v6',
-    max_episode_steps=999,
+    max_episode_steps=99999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSimv6_vartime-v0',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v6_vartime_v0',
+    max_episode_steps=99999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSimv6_1second-v0',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v6_1s',
+    max_episode_steps=99999,
     reward_threshold=1000.0,
 )
 
 register(
     id='JSBSim-v7',
     entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v7',
-    max_episode_steps=999,
+    max_episode_steps=99999,
     reward_threshold=1000.0,
 )
 
 register(
     id='JSBSim-v8',
     entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v8',
-    max_episode_steps=999,
+    max_episode_steps=99999,
     reward_threshold=1000.0,
 )
 
 register(
     id='JSBSim-v9',
     entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v9',
-    max_episode_steps=999,
+    max_episode_steps=99999,
     reward_threshold=1000.0,
 )
 
@@ -579,27 +835,27 @@ register(
 register(
     id='JSBSim-v11',
     entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v11',
-    max_episode_steps=999,
+    max_episode_steps=99999,
     reward_threshold=1000.0,
 )
 
 register(
     id='JSBSim-v12',
     entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v12',
-    max_episode_steps=999,
+    max_episode_steps=99999,
     reward_threshold=1000.0,
 )
 
 register(
     id='JSBSim-v13',
     entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v13',
-    max_episode_steps=999,
+    max_episode_steps=99999,
     reward_threshold=1000.0,
 )
 
 register(
     id='JSBSim-v14',
     entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v14',
-    max_episode_steps=999,
+    max_episode_steps=99999,
     reward_threshold=1000.0,
 )

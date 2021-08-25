@@ -1,4 +1,4 @@
-from deep_glide.envs.abstractEnvironments import TerminationCondition
+from deep_glide.envs.abstractEnvironments import AbstractJSBSimEnv, TerminationCondition
 import logging
 import numpy as np
 from deep_glide.utils import Normalizer, ensure_dir, angle_between
@@ -103,7 +103,7 @@ def _checkFinalConditions_v6(self):
         self.terminal_condition = TerminationCondition.HitTerrain    
     return self.terminal_condition
 
-def _reward_v5(self):
+def _reward_v5(self: AbstractJSBSimEnv):
     self._checkFinalConditions()
     rew = 0
     dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
@@ -117,9 +117,44 @@ def _reward_v5(self):
         rew = (self.RANGE_DIST-dist_target)/self.RANGE_DIST*10
     else:
         rew = min(self.RANGE_DIST-dist_target,0)/3000        
-    return rew  
+    return rew
 
-def _reward_v6(self):    
+def _reward_v5_time_proportional(self: AbstractJSBSimEnv):
+    self._checkFinalConditions()
+    rew = 0
+    dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
+    if self.terminal_condition == TerminationCondition.NotFinal:            
+        energy = self._get_energy()
+        if energy == 0:
+            rew = 0
+        else:
+            rew = - dist_target / energy * 29.10 * self.timer_goto._interval / 5.0
+    elif self.terminal_condition == TerminationCondition.Arrived: 
+        rew = (self.RANGE_DIST-dist_target)/self.RANGE_DIST*10
+    else:
+        rew = min(self.RANGE_DIST-dist_target,0)/3000        
+    return rew
+
+
+def _reward_v5_time_proportional_x5(self: AbstractJSBSimEnv):
+    self._checkFinalConditions()
+    rew = 0
+    dist_target = np.linalg.norm(self.goal[0:2]-self.pos[0:2])
+    if self.terminal_condition == TerminationCondition.NotFinal:            
+        energy = self._get_energy()
+        if energy == 0:
+            rew = 0
+        else:
+            rew = - dist_target / energy * 29.10 * self.timer_goto._interval
+    elif self.terminal_condition == TerminationCondition.Arrived: 
+        rew = (self.RANGE_DIST-dist_target)/self.RANGE_DIST*10
+    else:
+        rew = min(self.RANGE_DIST-dist_target,0)/3000        
+    return rew
+
+
+
+def _reward_v6(self: AbstractJSBSimEnv):    
     '''
     Der Reward ist abhängig von Entfernung zum Ziel sowie Anflugwinkel
     '''
@@ -132,7 +167,7 @@ def _reward_v6(self):
         if energy == 0:
             rew = 0
         else:
-            rew = - dist_target / energy * 29.10
+            rew = - dist_target / energy * 29.10 * self.timer_goto._interval / 5.0
     elif self.terminal_condition == TerminationCondition.Arrived: 
         rew_dist = (self.RANGE_DIST-dist_target)/self.RANGE_DIST*5
         rew_angle = (self.RANGE_ANGLE-delta_angle) / self.RANGE_ANGLE * 5
