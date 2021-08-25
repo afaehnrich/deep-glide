@@ -14,7 +14,7 @@ spec:
       - name: ddpg3
         image: 'afaehnrich/deep-glide:latest'
         command: ["python3"]
-        args: ["../rl-baselines3-zoo/train.py", "--algo", "sac", "--env", "JSBSim-v6", "-n", "100000", "-optimize", "--n-trials", "1000", "--n-jobs", "4", "--num-threads", "4", "--sampler", "random", "--pruner", "median"]          
+        args: ["../rl-baselines3-zoo/train.py", "--algo", "sac", "--env", "JSBSim-v6", "-n", "100000", "-optimize", "--n-trials", "1000", "--n-jobs", "16", "--num-threads", "16", "--sampler", "random", "--pruner", "median"]          
         resources:
           limits:
             nvidia.com/gpu: "1"
@@ -27,4 +27,4 @@ spec:
           - name: nfs
             persistentVolumeClaim:
               claimName: titze-results-pvc
-      restartPolicy: OnFailure
+      restartPolicy: Never
