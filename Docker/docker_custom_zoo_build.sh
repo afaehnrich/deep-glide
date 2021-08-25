@@ -1,3 +1,3 @@
 #!/bin/sh
-docker build -f ./Dockerfile_custom_zoo -t afaehnrich/deep-glide-custom-zoo:latest ../
+docker build --no-cache -f ./Dockerfile_custom_zoo -t afaehnrich/deep-glide-custom-zoo:latest ../
 
