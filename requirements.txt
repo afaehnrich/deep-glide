@@ -7,3 +7,4 @@ jsbsim
 toml
 datetime
 Flask
+traits

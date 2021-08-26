@@ -822,18 +822,12 @@ register(
 )
 
 register(
-    id='JSBSimv6_1second-v0',
-    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v6_1s',
-    max_episode_steps=99999,
-    reward_threshold=1000.0,
-)
-
-register(
     id='JSBSimv6_1_25second-v0',
     entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v6_1_25s',
     max_episode_steps=99999,
     reward_threshold=1000.0,
 )
+
 
 register(
     id='JSBSimv6_2_5second-v0',

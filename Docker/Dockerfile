@@ -34,7 +34,7 @@ RUN pip uninstall -y stable-baselines3 torch
 RUN pip install torch==1.8.1+cu111 torchvision==0.9.1+cu111 torchaudio==0.8.1 -f https://download.pytorch.org/whl/torch_stable.html
 RUN pip install gym==0.17.3
 RUN pip install box2d-py==2.3.8 pybullet gym-minigrid scikit-optimize optuna pytablewriter seaborn pyyaml>=5.1 sb3-contrib>=1.1.0a7
-RUN pip install wheel gym numpy matplotlib jsbsim toml datetime Flask tensorboard
+RUN pip install wheel gym numpy matplotlib jsbsim toml datetime Flask tensorboard traits
 
 ENV PATH=$VENV/bin:$PATH
 
