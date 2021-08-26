@@ -265,7 +265,7 @@ class JSBSimEnv_v5_20km(JSBSimEnv_v5):
     Wie JSBSimEnv_v5, aber Ziel kann bis zu 20 km weit weg sein (nicht nur 5km)
     '''
     def __init__(self):
-        super().__init__(self)
+        super().__init__()
         self.config.x_range_goal = (-20000, 20000)
         self.config.y_range_goal = (-20000, 20000)  
 
@@ -411,6 +411,31 @@ class JSBSimEnv_v6_vartime_v0(JSBSimEnv_v6):
 class JSBSimEnv_v6_vartime_v1(JSBSimEnv_v6_vartime_v0):
     env_name = 'JSBSimv6_vartime-v1'
     goto_timer_constraints = (2., 10.) # Minimale und maximale Zeit zwischen zwei steps
+
+class JSBSimEnv_v6_10km(JSBSimEnv_v6):
+    env_name = 'JSBSimv6_10km-v0'
+    '''
+    Wie JSBSimEnv_v6, aber Ziel kann bis zu 10 km weit weg sein (nicht nur 5km)
+    '''
+    def __init__(self):
+        super().__init__()
+        self.config.x_range_goal = (-10000, 10000)
+        self.config.y_range_goal = (-10000, 10000)  
+
+class JSBSimEnv_v6_20km(JSBSimEnv_v6):
+    env_name = 'JSBSimv6_20km-v0'
+    def __init__(self):
+        super().__init__()
+        self.config.x_range_goal = (-20000, 20000)
+        self.config.y_range_goal = (-20000, 20000)  
+
+class JSBSimEnv_v6_40km(JSBSimEnv_v6):
+    env_name = 'JSBSimv6_40km-v0'
+    def __init__(self):
+        super().__init__()
+        self.config.x_range_goal = (-40000, 40000)
+        self.config.y_range_goal = (-40000, 40000)  
+
 
 
 class JSBSimEnv_v7(JSBSimEnv_v0):
@@ -829,14 +854,14 @@ register(
 )
 
 register(
-    id='JSBSimv6_1_25second-v0',
+    id='JSBSimv6_1_25seconds-v0',
     entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v6_1_25s',
     max_episode_steps=99999,
     reward_threshold=1000.0,
 )
 
 register(
-    id='JSBSimv6_2_5second-v0',
+    id='JSBSimv6_2_5seconds-v0',
     entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v6_2_5s',
     max_episode_steps=99999,
     reward_threshold=1000.0,
@@ -844,14 +869,14 @@ register(
 
 
 register(
-    id='JSBSimv6_10second-v0',
+    id='JSBSimv6_10seconds-v0',
     entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v6_10s',
     max_episode_steps=99999,
     reward_threshold=1000.0,
 )
 
 register(
-    id='JSBSimv6_20second-v0',
+    id='JSBSimv6_20seconds-v0',
     entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v6_20s',
     max_episode_steps=99999,
     reward_threshold=1000.0,
@@ -867,6 +892,27 @@ register(
 register(
     id='JSBSimv6_vartime-v1',
     entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v6_vartime_v1',
+    max_episode_steps=99999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSimv6_10km-v0',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5_10km',
+    max_episode_steps=99999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSimv6_20km-v0',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5_20km',
+    max_episode_steps=99999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSimv6_40km-v0',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5_40km',
     max_episode_steps=99999,
     reward_threshold=1000.0,
 )
