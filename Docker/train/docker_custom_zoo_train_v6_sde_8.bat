@@ -1,3 +1,4 @@
+docker pull afaehnrich/deep-glide-custom-zoo:latest
 docker run --mount src=%~dp0/../../../rl-baselines3-zoo/logs,target=/root/code/rl-baselines3-zoo/logs,type=bind ^
 			--mount src=%~dp0/../../../rl-baselines3-zoo/rl-trained-agents,target=/root/code/rl-baselines3-zoo/rl-trained-agents,type=bind ^
 			--mount src=%~dp0/../../../rl-baselines3-zoo/logs_enjoy,target=/root/code/rl-baselines3-zoo/logs_enjoy,type=bind ^

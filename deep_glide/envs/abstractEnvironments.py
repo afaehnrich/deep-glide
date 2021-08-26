@@ -29,7 +29,7 @@ class TerminationCondition(Enum):
 @dataclass
 class Config:
     start_ground_distance = (1000,4000)
-    goal_ground_distance = (100,100)
+    goal_ground_distance = (50,50)
     speed_range = (80,100)
     x_range_start = (0, 0)
     y_range_start = (0, 0)
@@ -194,7 +194,7 @@ class AbstractJSBSimEnv(gym.Env, ABC):
                 if not np.isfinite(reward).all():
                     logging.error('Infinite number detected in reward. Replacing with zero')                    
                     reward =-10
-                    done = True
+                    done = True 
                 info = self._info() # info = {}
                 return self.new_state, reward, done, info
             if done:
@@ -241,10 +241,10 @@ class AbstractJSBSimEnv(gym.Env, ABC):
         (mx1, mx2), (my1,my2) = self.config.map_start_range
         self.terrain.map_offset = [np.random.randint(mx1, mx2), np.random.randint(my1, my2)]
         self.terrain.define_map_for_plotting(self.config.render_range[0], self.config.render_range[1])              
-        self.goal = self.random_position(self.config.goal_ground_distance, self.config.ground_distance_radius, 
-                                        self.config.x_range_goal, self.config.y_range_goal, self.config.z_range_goal)
         self.start = self.random_position(self.config.start_ground_distance, self.config.ground_distance_radius,
                                           self.config.x_range_start, self.config.y_range_start, self.config.z_range_start)
+        self.goal = self.random_position(self.config.goal_ground_distance, self.config.ground_distance_radius, 
+                                        self.config.x_range_goal, self.config.y_range_goal, self.config.z_range_goal)
         self.goal_orientation = np.random.uniform(.01, 1., 3) * np.random.choice([-1,1],3)
         self.goal_orientation[2] = 0
         self.goal_orientation = self.goal_orientation / np.linalg.norm(self.goal_orientation)
