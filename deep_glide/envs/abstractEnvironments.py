@@ -11,6 +11,7 @@ from deep_glide import plotting
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from matplotlib import pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib as mpl
 import math
 import os
@@ -306,8 +307,12 @@ class AbstractJSBSimEnv(gym.Env, ABC):
     def render(self, mode='human', trajectory = None):        
         if self.plot_fig is None:
             cm = 1/2.54  # centimeters in inches
-            self.plot_fig, (self.ax2, self.ax1, self.ax3) = plt.subplots(1,3, gridspec_kw={'width_ratios': (0.5,12,0.5)}, figsize=(20*cm, 16*cm), dpi=80)
-            self.plot_fig.tight_layout(pad=5.0)   
+            #self.plot_fig, (self.ax2, self.ax1, self.ax3) = plt.subplots(1,3, gridspec_kw={'width_ratios': (0.5,40,0.5)}, figsize=(20*cm, 16*cm), dpi=80)
+            self.plot_fig, self.ax1 = plt.subplots(1,1, figsize=(20*cm, 13*cm), dpi=80)
+            #plt.subplots_adjust(left=.01, right=.99, bottom=0.01, top=0.99)
+            divider = make_axes_locatable(self.ax1)
+            self.ax2 = divider.append_axes("left", size="5%", pad=1.0)
+            self.ax3 = divider.append_axes("right", size="5%", pad=0.75)
             #self.ax2.plot([1],[2], cmap='gist_earth', vmin=-1000, vmax = 4000)
             plt.ion()
             plt.show()
@@ -323,16 +328,18 @@ class AbstractJSBSimEnv(gym.Env, ABC):
             from scipy import ndimage
             img = ndimage.rotate(img, 90)
             im = self.ax1.imshow(img, cmap='gist_earth', vmin=-1000, vmax = 4000, origin='upper', extent=(x1-res/2,x2-res/2,y1-res/2,y2-res/2))
-            self.ax1.set_ylabel("Entfernung vom Startpunkt in Nord-Süd-Richtung in m")
-            self.ax1.set_xlabel("Entfernung vom Startpunkt in West-Ost-Richtung in m")
+            self.ax1.set_ylabel("Distanz zum Start (Nord-Süd) [m]")
+            self.ax1.yaxis.set_label_position('right')
+            self.ax1.set_xlabel("Distanz zum Start (West-Ost) [m]")
+            self.ax1.xaxis.set_label_position('top')
             cmap = mpl.cm.get_cmap('gist_earth')
             cmap_norm = mpl.colors.Normalize(vmin=-1000, vmax = 4000)
             cb = mpl.colorbar.ColorbarBase(self.ax3, cmap = cmap, norm = cmap_norm, orientation = 'vertical')            
             # cb = plt.colorbar(im,cax = self.ax3)
-            self.ax3.yaxis.set_ticks_position('left')
-            self.ax3.yaxis.set_label_position('left')
+            self.ax3.yaxis.set_ticks_position('right')
+            self.ax3.yaxis.set_label_position('right')
             self.ax3.yaxis.set_ticks([-1000,0,4000])
-            cb.set_label("Terrainhöhe in m")
+            cb.set_label("Terrainhöhe [m]", labelpad=-20)
             z_max = self.start[2]
             z_min = self.goal[2]        
             self.cmap = mpl.cm.get_cmap('autumn')
@@ -341,7 +348,8 @@ class AbstractJSBSimEnv(gym.Env, ABC):
             self.ax2.yaxis.set_ticks_position('left')
             self.ax2.yaxis.set_label_position('left')
             self.ax2.yaxis.set_ticks([z_min,z_max])
-            cb2.set_label("Flughöhe in m")
+            cb2.set_label("Flughöhe [m]", labelpad=-20)
+            self.plot_fig.tight_layout(pad=1.05)   
             # cb2 = mpl.colorbar.ColorbarBase(self.ax2, cmap=, norm=normalize, orientation='vertical')
             self.render_start_goal(1)
             self.plot_oldxy = self.pos

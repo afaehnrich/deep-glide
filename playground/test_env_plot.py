@@ -1,13 +1,14 @@
-from deep_glide.envs import JSBSimEnv2D_v2
+from deep_glide.envs import JSBSimEnv2D_v2, JSBSimEnv2D_v0
 from matplotlib import pyplot as plt
 import numpy as np
 
-env = JSBSimEnv2D_v2()
+#env = JSBSimEnv2D_v2()
+env = JSBSimEnv2D_v0()
 starts=[]
 goals=[]
 goalx=[]
 goaly=[]
-for i in range(10000):
+for i in range(1):#range(10000):
     env.reset()
     starts.append(np.linalg.norm(env.start[0:2]))
     goals.append(np.linalg.norm(env.goal[0:2]))
@@ -15,6 +16,8 @@ for i in range(10000):
     goaly.append(env.goal[0])
     if not i % 1000: print(i)
 env.render()
+input()
+exit()
 starts = np.array(starts)
 goals = np.array(goals)
 goalx = np.array(goalx)
