@@ -31,14 +31,16 @@ class Config:
     start_ground_distance = (1000,4000)
     goal_ground_distance = (50,50)
     speed_range = (80,100)
-    x_range_start = (0, 0)
-    y_range_start = (0, 0)
+    x_range_start = (-5000, 5000)
+    y_range_start = (-5000, 5000)    
+    # x_range_start = (0, 0)
+    # y_range_start = (0, 0)
     z_range_start = (0, 8000)  
     x_range_goal = (-5000, 5000)
     y_range_goal = (-5000, 5000)    
     z_range_goal = (0, 4000)
-    x_search_range = (-5000, 5000)
-    y_search_range = (-5000, 5000)        
+    # x_search_range = (-5000, 5000)
+    # y_search_range = (-5000, 5000)        
     x_range_wind = (-30., 30.)
     y_range_wind = (-30., 30.)
     z_range_wind = (-30., 30.)
@@ -48,6 +50,7 @@ class Config:
     min_distance_terrain = 50
     ground_distance_radius = 900
     runway_dimension = np.array([900,60]) # Landebahn Länge x Breite
+    runway_draw = False
     initial_props={
         'ic/terrain-elevation-ft': 0.00000001, # 0.0 erzeugt wohl NaNs
         'ic/p-rad_sec': 0,
@@ -90,6 +93,7 @@ class AbstractJSBSimEnv(gym.Env, ABC):
     env_name: str
     episode = 0
     start_date = date.today()
+    rendered_episode = None
 
     _invalid_state = False
 
@@ -155,12 +159,13 @@ class AbstractJSBSimEnv(gym.Env, ABC):
             raise ValueError()
         return state
 
-    def __init__(self, save_trajectory = False):           
+    def __init__(self, save_trajectory = False, render_before_reset=False):
         super().__init__()
         np.random.seed()
         #print('PyTorch Version: ', torch.__version__)
         self.sim = Sim(sim_dt = 0.02)
-        self.save_trajectory = save_trajectory  
+        self.save_trajectory = save_trajectory or render_before_reset
+        self.render_before_reset=render_before_reset
         self.m_kg = self.sim.sim['inertia/mass-slugs'] * 14.5939029372
         self.g_fps2 = self.sim.sim['accelerations/gravity-ft_sec2']
         self.initial_state = SimState()
@@ -206,14 +211,15 @@ class AbstractJSBSimEnv(gym.Env, ABC):
                     reward =-10
                     done = True
                 info = { **self._info(), **self._info_final()} # info = {}
+                if self.render_before_reset: self.rendered_episode = self.render(trajectory = self.trajectory)
                 return self.new_state, reward, done, info
 
     def random_position(self, h_range, radius, x_range, y_range, z_range):
         rx1,rx2 = x_range
         ry1,ry2 = y_range
         rz1,rz2 = z_range
-        sx1,sx2 = self.config.x_search_range
-        sy1,sy2 = self.config.y_search_range
+        # sx1,sx2 = self.config.x_search_range
+        # sy1,sy2 = self.config.y_search_range
         i = 0
         while True:
             i+=1
@@ -224,7 +230,7 @@ class AbstractJSBSimEnv(gym.Env, ABC):
             y = np.random.uniform(ry1, ry2)
             dmin, dmax = h_range
             dx, dy  = np.random.uniform(.1, 1.,2)*np.random.choice([-90, 90], 2)
-            while sx1<=x<=sx2 and sy1<=y<=sy2:
+            while rx1<=x<=rx2 and ry1<=y<=ry2:
                 h = self.terrain.max_altitude(x, y, radius)
                 if h+dmin <= rz2 and rz1 <= h+dmax:
                     z = np.random.uniform(max(h + dmin,rz1), min(h+dmax, rz2))
@@ -234,7 +240,6 @@ class AbstractJSBSimEnv(gym.Env, ABC):
         
     def reset(self) -> object: #->observation
         self._invalid_state = False
-        np.random.seed()
         if self.episode_rendered: 
             self.save_plot()
             self.episode_rendered = False
@@ -243,6 +248,11 @@ class AbstractJSBSimEnv(gym.Env, ABC):
         self.terrain.define_map_for_plotting(self.config.render_range[0], self.config.render_range[1])              
         self.start = self.random_position(self.config.start_ground_distance, self.config.ground_distance_radius,
                                           self.config.x_range_start, self.config.y_range_start, self.config.z_range_start)
+        # Startpunkt ins Zentrum des Kartenausschnitts setzen
+        self.terrain.map_offset[0] += int(self.start[0] / self.terrain.resolution)
+        self.terrain.map_offset[1] += int(self.start[1] / self.terrain.resolution)
+        self.terrain.define_map_for_plotting(self.config.render_range[0], self.config.render_range[1])
+        self.start[0] = self.start[1] = 0.
         self.goal = self.random_position(self.config.goal_ground_distance, self.config.ground_distance_radius, 
                                         self.config.x_range_goal, self.config.y_range_goal, self.config.z_range_goal)
         self.goal_orientation = np.random.uniform(.01, 1., 3) * np.random.choice([-1,1],3)
@@ -251,17 +261,16 @@ class AbstractJSBSimEnv(gym.Env, ABC):
         speed_start = np.random.uniform(self.config.speed_range[0], self.config.speed_range[1])
         psi_start = np.random.uniform(0,360)
         self.runway = Runway(self.goal[0:2], self.goal_orientation[0:2],self.config.runway_dimension)
-        self.terrain.set_runway(self.runway)
+        self.terrain.set_runway(self.runway,self.config.runway_draw)
         self.pos_offset = self.start.copy()
         self.pos_offset[2] = 0
         self.trajectory=[]   
         self.initial_state.position = self.start
-        self.initial_state
         self._reset_sim_state(self.initial_state, speed_start, psi_start)
         #PID-Regler und Timer
         self.pid_pitch = PID_angle('PID pitch', p=-1.5, i=-0.05, d=0, time=0, angle_max=2*np.math.pi, out_min=-1.0, out_max=1.0, anti_windup=1)
         self.pid_roll = PID_angle( 'PID roll', p=17.6, i=0.01, d=35.2, time=0, angle_max=2*np.math.pi, out_min=-1.0, out_max=1.0, anti_windup=1)
-        #self.pid_heading = PID_angle('PID heading', p=0.7, i=-0.00002, d=25, time=0, angle_max=2*np.math.pi, out_min=-.6, out_max=.6, anti_windup=1)
+        self.pid_heading = PID_angle('PID heading', p=0.7, i=-0.00002, d=25, time=0, angle_max=2*np.math.pi, out_min=-.6, out_max=.6, anti_windup=1)
         self.pid_heading = PID_angle('PID heading', p=0.7, i=-0.00002, d=25, time=0, angle_max=2*np.math.pi, out_min=-.5*np.math.pi, out_max=.5*np.math.pi, anti_windup=1)
         self.pid_height = PID('PID height', p=0.7, i=-0.00002, d=25, time=0, out_min=-.1, out_max=.1, anti_windup=1)
         self.pid_slip = PID('PID slip', p=0.01, i=0.0, d=0, time=0, out_min=-1.0, out_max=1.0, anti_windup=1) #TODO: pid_slip Tunen
@@ -294,7 +303,7 @@ class AbstractJSBSimEnv(gym.Env, ABC):
 
     ax1: plt.Axes
 
-    def render(self, mode='human'):        
+    def render(self, mode='human', trajectory = None):        
         if self.plot_fig is None:
             cm = 1/2.54  # centimeters in inches
             self.plot_fig, (self.ax2, self.ax1, self.ax3) = plt.subplots(1,3, gridspec_kw={'width_ratios': (0.5,12,0.5)}, figsize=(20*cm, 16*cm), dpi=80)
@@ -315,7 +324,7 @@ class AbstractJSBSimEnv(gym.Env, ABC):
             img = ndimage.rotate(img, 90)
             im = self.ax1.imshow(img, cmap='gist_earth', vmin=-1000, vmax = 4000, origin='upper', extent=(x1-res/2,x2-res/2,y1-res/2,y2-res/2))
             self.ax1.set_ylabel("Entfernung vom Startpunkt in Nord-Süd-Richtung in m")
-            self.ax1.set_xlabel("Entfernung vom Startpunkt in Wet-Ost-Richtung in m")
+            self.ax1.set_xlabel("Entfernung vom Startpunkt in West-Ost-Richtung in m")
             cmap = mpl.cm.get_cmap('gist_earth')
             cmap_norm = mpl.colors.Normalize(vmin=-1000, vmax = 4000)
             cb = mpl.colorbar.ColorbarBase(self.ax3, cmap = cmap, norm = cmap_norm, orientation = 'vertical')            
@@ -340,7 +349,10 @@ class AbstractJSBSimEnv(gym.Env, ABC):
             self.render_time = time.time()-1            
         x1, y1, z1 = self.plot_oldxy
         x2, y2, z2 = self.pos               
-        self.ax1.plot([x1, x2],[y1, y2], '-', c=self.cmap(self.cmap_norm(z2)) )
+        if trajectory is None:
+            self.ax1.plot([x1, x2],[y1, y2], '-', c=self.cmap(self.cmap_norm(z2)) )
+        else:
+            self.ax1.plot([p[0] for p in trajectory],[p[1] for p in trajectory], '-', c=self.cmap(self.cmap_norm(z2)) )
         if time.time()-self.render_time>0.05:
             plt.gcf().canvas.draw_idle()
             plt.gcf().canvas.start_event_loop(0.0001)

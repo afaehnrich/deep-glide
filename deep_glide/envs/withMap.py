@@ -39,8 +39,8 @@ class JSBSimEnv2D_v0(JSBSimEnv_v0):
     map_mean: float
     map_std: float
 
-    def __init__(self):
-        super().__init__()                
+    def __init__(self, save_trajectory = False, render_before_reset=False):
+        super().__init__(save_trajectory, render_before_reset)          
         self._init_terrain()
         self.observation_space = spaces.Box( low = -math.inf, high = math.inf,
                     shape=(super().observation_space.shape[0]+self.OBS_HEIGHT*self.OBS_WIDTH,), dtype=np.float32)
@@ -112,8 +112,8 @@ class JSBSimEnv2D_v3(JSBSimEnv2D_v2):
     Observation Shape angepasst für CNNs anstelle von MLPs
     '''
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, save_trajectory = False, render_before_reset=False):
+        super().__init__(save_trajectory, render_before_reset)
         self.observation_space = self.observation_space = spaces.Box(
             low=-math.inf, high=math.inf, shape=(1,37, 36)
         )
@@ -144,8 +144,8 @@ class JSBSimEnv2D_v4(JSBSimEnv2D_v2):
         self.terrain = TerrainBlockworld()
         self.calc_map_mean_std()
 
-    # def __init__(self):
-    #     super().__init__()                
+    # def __init__(self, save_trajectory = False, render_before_reset=False):
+    #    super().__init__(save_trajectory, render_before_reset)
     #     self._init_terrain()
     #     self.observation_space = spaces.Box( low = -math.inf, high = math.inf,
     #                 shape=(15,), dtype=np.float32)

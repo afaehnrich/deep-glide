@@ -309,8 +309,9 @@ class TerrainClass30m(TerrainClass):
         except:
             return np.zeros((1,1))
 
-    def set_runway(self, runway:Runway):
+    def set_runway(self, runway:Runway, draw):
         self.runway = runway
+        if not draw: return
         p1,p2,p3,p4 = self.runway.get_rectangle()
         px1 = self.pixel_from_coordinate(p1)
         px2 = self.pixel_from_coordinate(p2)
