@@ -282,6 +282,15 @@ class JSBSimEnv_v5_vartime_v0(JSBSimEnv_v5):
         self.timer_goto._interval = t_min + (action[3]+1)/2*(t_max-t_min)
         return super().step(action)
 
+    def _info(self):
+        wind = self.sim.get_wind()
+        return {            
+            'wind_e': wind[0],
+            'wind_n': wind[1],
+            'wind_u': wind[2],
+            'dt_step': self.timer_goto._interval
+        }    
+
 class JSBSimEnv_v5_1s_v1(JSBSimEnv_v5_1s):
     env_name = 'JSBSimv5_1second-v1'
     '''
@@ -389,9 +398,18 @@ class JSBSimEnv_v6_vartime_v0(JSBSimEnv_v6):
         self.timer_goto._interval = t_min + (action[3]+1)/2*(t_max-t_min)
         return super().step(action)
 
+    def _info(self):
+        wind = self.sim.get_wind()
+        return {            
+            'wind_e': wind[0],
+            'wind_n': wind[1],
+            'wind_u': wind[2],
+            'dt_step': self.timer_goto._interval
+        }    
+
 class JSBSimEnv_v6_vartime_v1(JSBSimEnv_v6_vartime_v0):
     env_name = 'JSBSimv6_vartime-v1'
-    goto_timer_constraints = (2., 10.) # Minimale und maximale Zeit zwischen zwei steps
+    goto_timer_constraints = (2., 10.) # Minimale und maximale Zeit zwischen zwei steps    
 
 class JSBSimEnv_v6_10km(JSBSimEnv_v6):
     env_name = 'JSBSimv6_10km-v0'
