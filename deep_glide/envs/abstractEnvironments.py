@@ -182,14 +182,17 @@ class AbstractJSBSimEnv(gym.Env, ABC):
             self.sim.run()
             self._update(self.sim)
             if self.timer_pid.check_reset(self.sim.time):
+                psi = np.nan_to_num(self.sim.sim['attitude/psi-rad'], neginf=0, posinf=0)
+                roll = np.nan_to_num(self.sim.sim['attitude/roll-rad'], neginf=0, posinf=0)
+                pitch = np.nan_to_num(self.sim.sim['attitude/pitch-rad'], neginf=0, posinf=0)
                 heading_target = angle_between(np.array([0,1]), action[0:2])
                 #pitch_target = vector_pitch(action)
                 pitch_target = 0
-                roll_target = self.pid_heading(self.sim.sim['attitude/psi-rad'], heading_target)        
+                roll_target = self.pid_heading(psi, heading_target)        
                 #roll_target=self.pid_heading(self.sim.sim['flight-path/psi-gt-rad'], heading_target)      
-                self.sim.sim['fcs/aileron-cmd-norm'] = self.pid_roll(self.sim.sim['attitude/roll-rad'], roll_target)
+                self.sim.sim['fcs/aileron-cmd-norm'] = self.pid_roll(roll, roll_target)
                 #self.sim.sim['fcs/elevator-cmd-norm'] = self.pid_pitch(self.sim.sim['flight-path/gamma-rad'], pitch_target)
-                self.sim.sim['fcs/elevator-cmd-norm'] = self.pid_pitch(self.sim.sim['attitude/pitch-rad'], pitch_target)                  
+                self.sim.sim['fcs/elevator-cmd-norm'] = self.pid_pitch(pitch, pitch_target)                  
             #if timer_pid_slip.check_reset(self.sim.time):
             #    self.sim.sim['fcs/rudder-cmd-norm'] = self.pid_slip(self.sim.sim['velocities/v-fps'], 0)
             done = self._done() or self._invalid_state

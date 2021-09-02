@@ -289,9 +289,21 @@ class JSBSimEnv_v5_1s_v1(JSBSimEnv_v5_1s):
     '''
     _reward = rewardFunctions._reward_v5_time_proportional
 
+class JSBSimEnv_v5_1_25s_v1(JSBSimEnv_v5_2s):
+    env_name = 'JSBSimv5_1_25seconds-v1'
+    goto_time = 1.25
+    _reward = rewardFunctions._reward_v5_time_proportional
+
+
 class JSBSimEnv_v5_2s_v1(JSBSimEnv_v5_2s):
     env_name = 'JSBSimv5_2seconds-v1'
     _reward = rewardFunctions._reward_v5_time_proportional
+
+class JSBSimEnv_v5_2_5s_v1(JSBSimEnv_v5_2s):
+    env_name = 'JSBSimv5_2_5seconds-v1'
+    goto_time = 2.5
+    _reward = rewardFunctions._reward_v5_time_proportional
+
 
 class JSBSimEnv_v5_3s_v1(JSBSimEnv_v5_3s):
     env_name = 'JSBSimv5_3seconds-v1'
@@ -564,8 +576,8 @@ class JSBSimEnv_v13 (JSBSimEnv_v9):
 
         # Turbulenzen
         # https://jsbsim-team.github.io/jsbsim/classJSBSim_1_1FGWinds.html
-        self.sim.sim['atmosphere/turb-type'] = 4 #ttTustin (Dryden spectrum)
-        severity = np.random.choice([0,1,2])
+        self.sim.sim['atmosphere/turb-type'] = 3 #ttMilspec (Dryden spectrum)
+        severity = np.random.choice([3,4,6])
         speeds ={ 0:0, 1:7, 2:12, 3:25, 4:50, 5:63, 6:75, 7:90}
         self.sim.sim['atmosphere/turbulence/milspec/severity'] = severity
         self.sim.sim['atmosphere/turbulence/milspec/windspeed_at_20ft_AGL-fps'] = speeds[severity]
@@ -588,8 +600,8 @@ class JSBSimEnv_v14 (JSBSimEnv_v9):
 
         # Turbulenzen
         # https://jsbsim-team.github.io/jsbsim/classJSBSim_1_1FGWinds.html
-        self.sim.sim['atmosphere/turb-type'] = 4 #ttTustin (Dryden spectrum)
-        severity = np.random.choice([0,1,2])
+        self.sim.sim['atmosphere/turb-type'] = 3 #ttMilspec (Dryden spectrum)
+        severity = np.random.choice([3,4,6])
         speeds ={ 0:0, 1:7, 2:12, 3:25, 4:50, 5:63, 6:75, 7:90}
         self.sim.sim['atmosphere/turbulence/milspec/severity'] = severity
         self.sim.sim['atmosphere/turbulence/milspec/windspeed_at_20ft_AGL-fps'] = speeds[severity]
@@ -703,8 +715,22 @@ register(
 )
 
 register(
+    id='JSBSimv5_1_25seconds-v1',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5_1_25s_v1',
+    max_episode_steps=99999,
+    reward_threshold=1000.0,
+)
+
+register(
     id='JSBSimv5_2seconds-v1',
     entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5_2s_v1',
+    max_episode_steps=99999,
+    reward_threshold=1000.0,
+)
+
+register(
+    id='JSBSimv5_2_5seconds-v1',
+    entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v5_2_5s_v1',
     max_episode_steps=99999,
     reward_threshold=1000.0,
 )
@@ -766,7 +792,7 @@ register(
 )
 
 register(
-    id='JSBSimv6_1_25second-v0',
+    id='JSBSimv6_1_25seconds-v0',
     entry_point='deep_glide.envs.withoutMap:JSBSimEnv_v6_1_25s',
     max_episode_steps=99999,
     reward_threshold=1000.0,
