@@ -1,7 +1,8 @@
+from abc import abstractmethod
 from enum import auto
 from deep_glide.envs.withoutMap import JSBSimEnv_v0
 import numpy as np
-from deep_glide.sim import Sim, SimState, TerrainBlockworld, TerrainClass, TerrainOcean, TerrainSingleBlocks
+from deep_glide.sim import Sim, SimState, TerrainBlockworld, TerrainClass, TerrainClass90m, TerrainOcean, TerrainSingleBlocks
 from deep_glide.envs.abstractEnvironments import AbstractJSBSimEnv, TerminationCondition
 import deep_glide.envs.rewardFunctions as rewardFunctions
 from deep_glide.deprecated.properties import Properties, PropertylistToBox
@@ -14,18 +15,7 @@ from gym import spaces
 from matplotlib import pyplot as plt
 import math
 
-
-class JSBSimEnv2D_v0(JSBSimEnv_v0): 
-
-    # stateNormalizer = Normalizer('JsbSimEnv2D_v0')
-    # mapNormalizer = Normalizer2D('JsbSimEnv2D_v0_map')
-
-    env_name = 'JSBSim2D-v0'
-
-    '''
-    In diesem Env ist der Reward abhängig davon, wie nahe der Agent dem Ziel gekommen ist. 
-    Höhe und Anflugwinkel sind nicht entscheidend.
-    '''
+class AbstractJSBSimEnv2D(JSBSimEnv_v0):
 
     metadata = {'render.modes': ['human']}
 
@@ -39,14 +29,18 @@ class JSBSimEnv2D_v0(JSBSimEnv_v0):
     map_mean: float
     map_std: float
 
-    def __init__(self, save_trajectory = False, render_before_reset=False):
+    def __init__(self, terrain: str, save_trajectory = False, render_before_reset=False):
         super().__init__(save_trajectory, render_before_reset)          
-        self._init_terrain()
+        self._init_terrain(terrain)
         self.observation_space = spaces.Box( low = -math.inf, high = math.inf,
                     shape=(super().observation_space.shape[0]+self.OBS_HEIGHT*self.OBS_WIDTH,), dtype=np.float32)
 
-    def _init_terrain(self):
-        self.terrain = TerrainOcean()
+    def _init_terrain(self, terrain):
+        if terrain == 'ocean': self.terrain = TerrainOcean()
+        elif terrain == 'alps': self.terrain = TerrainClass90m()
+        elif terrain == 'block': self.terrain = TerrainBlockworld()
+        elif terrain == 'singleblock': self.terrain = TerrainSingleBlocks()
+        else: raise ValueError('Terraintype unknown: {}'.format(terrain))
         self.calc_map_mean_std()
 
     def calc_map_mean_std(self):
@@ -79,14 +73,30 @@ class JSBSimEnv2D_v0(JSBSimEnv_v0):
     plot_fig: plt.figure = None
 
 
+
+class JSBSimEnv2D_v0(AbstractJSBSimEnv2D): 
+
+    # stateNormalizer = Normalizer('JsbSimEnv2D_v0')
+    # mapNormalizer = Normalizer2D('JsbSimEnv2D_v0_map')
+
+    env_name = 'JSBSim2D-v0'
+
+    '''
+    In diesem Env ist der Reward abhängig davon, wie nahe der Agent dem Ziel gekommen ist. 
+    Höhe und Anflugwinkel sind nicht entscheidend.
+    '''
+
+    def __init__(self, terrain='ocean', save_trajectory = False, render_before_reset=False):
+        super().__init__(terrain, save_trajectory, render_before_reset)
+
+
 class JSBSimEnv2D_v1(JSBSimEnv2D_v0): 
     env_name = 'JSBSim2D-v1'
     '''
     Wie JSBSimEnv2D_v0, aber mit richtigen Hindernissen
     '''
-    def _init_terrain(self):
-        self.terrain = TerrainBlockworld()
-        self.calc_map_mean_std()
+    def __init__(self, terrain='block', save_trajectory = False, render_before_reset=False):
+        super().__init__(terrain, save_trajectory, render_before_reset)
 
 class JSBSimEnv2D_v2(JSBSimEnv2D_v1): 
     env_name = 'JSBSim2D-v2'
@@ -95,9 +105,8 @@ class JSBSimEnv2D_v2(JSBSimEnv2D_v1):
     Wie JSBSim_v5, aber mit Map.
     '''
 
-    def _init_terrain(self):
-        self.terrain = TerrainBlockworld()
-        self.calc_map_mean_std()
+    def __init__(self, terrain='block', save_trajectory = False, render_before_reset=False):
+        super().__init__(terrain, save_trajectory, render_before_reset)
 
 
     RANGE_DIST = 500 # in m | Umkreis um das Ziel in Metern, bei dem es einen positiven Reward gibt
@@ -112,8 +121,8 @@ class JSBSimEnv2D_v3(JSBSimEnv2D_v2):
     Observation Shape angepasst für CNNs anstelle von MLPs
     '''
 
-    def __init__(self, save_trajectory = False, render_before_reset=False):
-        super().__init__(save_trajectory, render_before_reset)
+    def __init__(self, terrain='block', save_trajectory = False, render_before_reset=False):
+        super().__init__(terrain, save_trajectory, render_before_reset)
         self.observation_space = self.observation_space = spaces.Box(
             low=-math.inf, high=math.inf, shape=(1,37, 36)
         )
@@ -138,24 +147,8 @@ class JSBSimEnv2D_v4(JSBSimEnv2D_v2):
     _checkFinalConditions = rewardFunctions._checkFinalConditions_v6
     _reward = rewardFunctions._reward_v6
 
-    # Hier ein Test mit Ocean-Terrain. Blockworld funktioniert nicht so gut.
-    def _init_terrain(self):
-        # self.terrain = TerrainOcean()
-        self.terrain = TerrainBlockworld()
-        self.calc_map_mean_std()
-
-    # def __init__(self, save_trajectory = False, render_before_reset=False):
-    #    super().__init__(save_trajectory, render_before_reset)
-    #     self._init_terrain()
-    #     self.observation_space = spaces.Box( low = -math.inf, high = math.inf,
-    #                 shape=(15,), dtype=np.float32)
-
-
-    # # mit dieser get_state-Variante sollte das Env der Version JSBSim_v6 entsprechen.
-    # def _get_state(self):
-    #     state = super()._get_state()
-    #     return state[-15:]
-
+    def __init__(self, terrain='block', save_trajectory = False, render_before_reset=False):
+        super().__init__(terrain, save_trajectory, render_before_reset)
 
 class JSBSimEnv2D_v5(JSBSimEnv2D_v4): 
     env_name = 'JSBSim2D-v5'
@@ -164,9 +157,8 @@ class JSBSimEnv2D_v5(JSBSimEnv2D_v4):
 
     '''
 
-    def _init_terrain(self):
-        self.terrain = TerrainSingleBlocks()
-        self.calc_map_mean_std()
+    def __init__(self, terrain='singleblock', save_trajectory = False, render_before_reset=False):
+        super().__init__(terrain, save_trajectory, render_before_reset)
 
     def reset(self):
         obs = super().reset()
@@ -182,9 +174,8 @@ class JSBSimEnv2D_v5(JSBSimEnv2D_v2):
 
     '''
 
-    def _init_terrain(self):
-        self.terrain = TerrainSingleBlocks()
-        self.calc_map_mean_std()
+    def __init__(self, terrain='singleblock', save_trajectory = False, render_before_reset=False):
+        super().__init__(terrain, save_trajectory, render_before_reset)
 
     def reset(self):
         obs = super().reset()
