@@ -1,4 +1,5 @@
 from abc import abstractclassmethod, abstractmethod
+from dataclasses import dataclass
 from warnings import catch_warnings
 
 from traits.trait_types import Int
@@ -17,19 +18,18 @@ class Sim():
     JSBSIM_DIR = "../../jsbsim"
     AIRCRAFT = 'c172p'
     
-    pos = (0,0,0)
-    time: int = 0
-    sim_dt: int  
-
     def __init__(self, sim_dt):
         path = os.path.dirname(os.path.realpath(__file__))
         self.sim = jsbsim.FGFDMExec(root_dir=os.path.join(path,self.JSBSIM_DIR))
         self.sim.set_debug_level(0)
+        self.pos = (0,0,0)
+        self.time: int = 0
         self.sim_dt = sim_dt
         self.initialise(self.sim_dt, self.AIRCRAFT, None)
         self.wall_clock_dt = None
         self.output_enabled = False
         self.sim.disable_output()        
+
 
     def __getitem__(self, prop) -> float:
         return self.sim[prop]
@@ -202,9 +202,6 @@ class Runway:
 
 class TerrainClass:
     
-    map_offset: List = None
-    runway: Runway
-
     @abstractmethod
     def define_map_for_plotting(self, xrange, yrange):
         pass
@@ -330,6 +327,15 @@ class TerrainClass90m(TerrainClass30m):
     filename = 'SRTM/90m/srtm_38_03.hgt'
 
 class TerrainBlockworld(TerrainClass90m):
+
+    block_dimensions = np.array([[5, 4],
+                                [10, 4],
+                                [15, 4],
+                                [4, 5],
+                                [4, 10],
+                                [4, 15]])
+    block_heights = [8000.] #[500., 1000., 2000., 4000.]
+    block_spacings = np.array([[10,10]])
     
     def __init__(self, ocean=False):
         if ocean:
@@ -341,16 +347,6 @@ class TerrainBlockworld(TerrainClass90m):
         self.create_blocks(50000, False, 100000)
         self.create_blocks(25000, True)
         self.data_bak = self.data.copy()   
-        
-
-    block_dimensions = np.array([[5, 4],
-                                [10, 4],
-                                [15, 4],
-                                [4, 5],
-                                [4, 10],
-                                [4, 15]])
-    block_heights = [8000.] #[500., 1000., 2000., 4000.]
-    block_spacings = np.array([[10,10]])
 
     def create_blocks(self, n_blocks, allow_overlap=False, n_tries=0):
         created = 0
@@ -380,6 +376,11 @@ class TerrainBlockworld(TerrainClass90m):
 
 class TerrainSingleBlocks(TerrainClass90m):
     
+    block_lens = np.array([5,10,15])
+    block_heights = [8000.] #[500., 1000., 2000., 4000.]
+    block_width = 4
+    spacing = 2
+
     def __init__(self, ocean=False):
         if ocean:
             self.data = np.zeros((self.row_length,self.row_length))
@@ -388,11 +389,6 @@ class TerrainSingleBlocks(TerrainClass90m):
         self.blocks = np.zeros((self.row_length,self.row_length))   
         self.map_offset =  [self.row_length//2, self.row_length//2]
         self.data_bak = self.data.copy()
-
-    block_lens = np.array([5,10,15])
-    block_heights = [8000.] #[500., 1000., 2000., 4000.]
-    block_width = 4
-    spacing = 2
 
     def reset_map(self):
         self.data = self.data_bak.copy()
@@ -468,6 +464,7 @@ class SimTimer:
         else: 
             return False
 
+@dataclass
 class SimState:
     props: Dict[str , float] = {}
     position: np.array = None

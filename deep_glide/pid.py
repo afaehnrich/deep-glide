@@ -56,7 +56,7 @@ class PID_angle(object):
 
 class PID(object):
 
-    type = 'pid_angle'
+    type = 'pid'
 
     def __init__(self, name, p=0, i=0, d=0, time=0, out_min=float('inf'), out_max=float('inf'), anti_windup = 1, target = 0):
         self.name = name

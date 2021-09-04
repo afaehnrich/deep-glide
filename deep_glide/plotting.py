@@ -3,29 +3,29 @@ Plotting tools for Sampling-based algorithms
 @author: huiming zhou
 """
 
+from dataclasses import dataclass
 from logging import raiseExceptions
 
 import numpy as np
 
+@dataclass
 class Cursor:
     line = None
     ball = None
     text = None
 
 class Plotting:
-    start_point = None
-    start_line = None
-    goal_point = None
-    goal_line = None
-    goal_cylinder = None
-    path = None
-    surface = None
-    figure = None
-    terrain = None
-    ax = None
-
     
     def __init__(self, x_start, x_goal, goal_distance, terrain, mlab):        
+        self.start_point = None
+        self.start_line = None
+        self.goal_point = None
+        self.goal_line = None
+        self.goal_cylinder = None
+        self.path = None
+        self.surface = None
+        self.figure = None
+        self.ax = None
         xI, xG, dG = x_start, x_goal, goal_distance
         self.mlab = mlab
         self.terrain = terrain
@@ -33,8 +33,8 @@ class Plotting:
         self.plot_map(terrain)        
         if not xI is None: self.plot_start(xI)
         if not xG is None and not dG is None: self.plot_goal(xG, dG)
-        self.figure.on_mouse_pick(self.picker_callback)
-        #self.test_height()    
+        self.figure.on_mouse_pick(self.picker_callback)        
+
 
     def animation(self, nodelist, path, animation=False):
         self.plot_visited(nodelist, animation)

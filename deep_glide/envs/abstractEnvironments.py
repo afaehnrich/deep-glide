@@ -69,34 +69,11 @@ class Config:
     logdir = './logs'
 
 class AbstractJSBSimEnv(gym.Env, ABC):
-
-    config = Config()    
-    terrain: TerrainClass
-
-    goal: np.array # = np.array([0.,0.,0.])
-    pos: np.array # = np.array([0.,0.,0.])
-    start: np.array # = np.array([0.,0.,0.])
-    goal_orientation: np.array # = np.array([0.,0.])
-
-    trajectory=[]
-    #stateNormalizer: Normalizer
-
-    flightRenderer3D = None
-    episode_rendered = False
-
-    
+   
     metadata = {'render.modes': ['human']}
     action_space = spaces.Box( low = -1., high = 1., shape=(3,), dtype=np.float32)
     observation_space = spaces.Box( low = -math.inf, high = math.inf, shape=(15,), dtype=np.float32)
-
-    sim: Sim
-    state: SimState = SimState()
     env_name: str
-    episode = 0
-    start_date = date.today()
-    rendered_episode = None
-
-    _invalid_state = False
 
     @abstractmethod
     def _checkFinalConditions(self):
@@ -163,14 +140,25 @@ class AbstractJSBSimEnv(gym.Env, ABC):
     def __init__(self, save_trajectory = False, render_before_reset=False):
         super().__init__()
         np.random.seed()
+        self.config = Config()        
         #print('PyTorch Version: ', torch.__version__)
         self.sim = Sim(sim_dt = 0.02)
         self.save_trajectory = save_trajectory or render_before_reset
         self.render_before_reset=render_before_reset
         self.m_kg = self.sim.sim['inertia/mass-slugs'] * 14.5939029372
         self.g_fps2 = self.sim.sim['accelerations/gravity-ft_sec2']
+        self.state: SimState = SimState()
         self.initial_state = SimState()
         self.initial_state.props = self.config.initial_props
+        self.plot_fig: plt.Figure = None
+        self.trajectory=[]
+        self.flightRenderer3D = None
+        self.episode_rendered = False
+        self.episode = 0
+        self.start_date = date.today()
+        self.rendered_episode = None
+        self._invalid_state = False
+
         #self.stateNormalizer = Normalizer(self.env_name + '_normalizer', auto_sample=True)
 
     def _update(self, sim:Sim ):
@@ -289,8 +277,6 @@ class AbstractJSBSimEnv(gym.Env, ABC):
         self.episode +=1
         return self._get_state()
     
-    plot_fig: plt.Figure = None
-
     def render_start_goal(self, alpha):
         xs,ys, _ = self.start
         self.ax1.plot(xs,ys,'mo', alpha=alpha)
@@ -303,9 +289,6 @@ class AbstractJSBSimEnv(gym.Env, ABC):
         xg1,yg1, _ = self.goal            
         self.ax1.plot(xg1,yg1,'m.', alpha=alpha)
         self.ax1.plot([xs,xg1],[ys,yg1],'b-')         
-
-
-    ax1: plt.Axes
 
     def render(self, mode='human', trajectory = None):        
         if self.plot_fig is None:

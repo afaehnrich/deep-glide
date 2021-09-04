@@ -21,9 +21,7 @@ class AbstractJSBSimEnv2D(JSBSimEnv_v0):
 
     OBS_WIDTH = 36
     OBS_HEIGHT = 36
-    z_range = (1000, 1500)
 
-    terrain: TerrainClass
     observation_space: spaces.Box
 
     map_mean: float
@@ -69,9 +67,6 @@ class AbstractJSBSimEnv2D(JSBSimEnv_v0):
             raise ValueError()
         state = np.concatenate((map.flatten(), state.flatten()))
         return state
-
-    plot_fig: plt.figure = None
-
 
 
 class JSBSimEnv2D_v0(AbstractJSBSimEnv2D): 
