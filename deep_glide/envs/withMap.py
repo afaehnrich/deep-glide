@@ -35,10 +35,12 @@ class AbstractJSBSimEnv2D(JSBSimEnv_v0):
 
     def _init_terrain(self, terrain):
         if terrain == 'ocean': self.terrain = TerrainOcean()
+        elif terrain == 'oceanblock': self.terrain = TerrainBlockworld(ocean=True)
         elif terrain == 'alps': self.terrain = TerrainClass90m()
         elif terrain == 'block': self.terrain = TerrainBlockworld()
         elif terrain == 'singleblock': self.terrain = TerrainSingleBlocks()
         else: raise ValueError('Terraintype unknown: {}'.format(terrain))
+        print( 'using Terrain:', terrain)
         self.calc_map_mean_std()
 
     def calc_map_mean_std(self):
