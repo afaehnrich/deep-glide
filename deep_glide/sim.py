@@ -1,5 +1,5 @@
 from abc import abstractclassmethod, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from warnings import catch_warnings
 
 from traits.trait_types import Int
@@ -466,5 +466,5 @@ class SimTimer:
 
 @dataclass
 class SimState:
-    props: Dict[str , float] = {}
+    props: Dict[str , float] = field(default_factory=list)
     position: np.array = None
