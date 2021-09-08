@@ -288,7 +288,7 @@ class AbstractJSBSimEnv(gym.Env, ABC):
         self.ax1.plot(xs_runway, ys_runway, 'm-', alpha=alpha)
         xg1,yg1, _ = self.goal            
         self.ax1.plot(xg1,yg1,'m.', alpha=alpha)
-        self.ax1.plot([xs,xg1],[ys,yg1],'b-')         
+        self.ax1.plot([xs,xg1],[ys,yg1],'b-', alpha= .5)         
 
     def render(self, mode='human', trajectory = None):        
         if self.plot_fig is None:
