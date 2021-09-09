@@ -102,11 +102,10 @@ class JSBSimEnv2D_v2(JSBSimEnv2D_v1):
     Wie JSBSim_v5, aber mit Map.
     '''
 
-    def __init__(self, terrain='block', save_trajectory = False, render_before_reset=False):
+    def __init__(self, terrain='block', save_trajectory = False, render_before_reset=False, range_dist = 500):
         super().__init__(terrain, save_trajectory, render_before_reset)
+        self.RANGE_DIST = range_dist  # in m | Umkreis um das Ziel in Metern, bei dem es einen positiven Reward gibt
 
-
-    RANGE_DIST = 500 # in m | Umkreis um das Ziel in Metern, bei dem es einen positiven Reward gibt
     _checkFinalConditions = rewardFunctions._checkFinalConditions_v5
     _reward = rewardFunctions._reward_v5
 
@@ -118,8 +117,8 @@ class JSBSimEnv2D_v3(JSBSimEnv2D_v2):
     Observation Shape angepasst für CNNs anstelle von MLPs
     '''
 
-    def __init__(self, terrain='block', save_trajectory = False, render_before_reset=False):
-        super().__init__(terrain, save_trajectory, render_before_reset)
+    def __init__(self, terrain='block', save_trajectory = False, render_before_reset=False, range_dist = 500):
+        super().__init__(terrain, save_trajectory, render_before_reset, range_dist)
         self.observation_space = self.observation_space = spaces.Box(
             low=-math.inf, high=math.inf, shape=(1,37, 36)
         )
@@ -139,13 +138,12 @@ class JSBSimEnv2D_v4(JSBSimEnv2D_v2):
     Ergebnis: Kein Lernen, selbst mit Ocean-Map. Wird der State auf den normalen State ohne Map reduziert, funktioniert alles super.
     '''
 
-    RANGE_DIST = 500 # in m | Umkreis um das Ziel in Metern, bei dem es einen positiven Reward gibt
-    RANGE_ANGLE = math.pi/5 # in rad | Toleranz des Anflugwinkels, bei dem ein positiver Reward gegeben wird
     _checkFinalConditions = rewardFunctions._checkFinalConditions_v6
     _reward = rewardFunctions._reward_v6
 
-    def __init__(self, terrain='block', save_trajectory = False, render_before_reset=False):
-        super().__init__(terrain, save_trajectory, render_before_reset)
+    def __init__(self, terrain='block', save_trajectory = False, render_before_reset=False, range_dist=500, range_angle = math.pi/5):
+        super().__init__(terrain, save_trajectory, render_before_reset, range_dist)
+        self.RANGE_ANGLE = range_angle  # in rad | Toleranz des Anflugwinkels, bei dem ein positiver Reward gegeben wird
 
 class JSBSimEnv2D_v5(JSBSimEnv2D_v4): 
     env_name = 'JSBSim2D-v5'
@@ -154,8 +152,8 @@ class JSBSimEnv2D_v5(JSBSimEnv2D_v4):
 
     '''
 
-    def __init__(self, terrain='singleblock', save_trajectory = False, render_before_reset=False):
-        super().__init__(terrain, save_trajectory, render_before_reset)
+    def __init__(self, terrain='singleblock', save_trajectory = False, render_before_reset=False, range_dist=500, range_angle = math.pi/5):
+        super().__init__(terrain, save_trajectory, render_before_reset, range_dist, range_angle)
 
     def reset(self):
         obs = super().reset()
@@ -163,22 +161,22 @@ class JSBSimEnv2D_v5(JSBSimEnv2D_v4):
         self.terrain.create_block_between(self.start[:2], self.goal[0:2])
         return obs
         
-class JSBSimEnv2D_v5(JSBSimEnv2D_v2): 
-    env_name = 'JSBSim2D-v6'
-    '''
-    Wie JSBSim2D-v2, aber mit nur einem Block pro episode. Der liegt dafür genau zwischen Start und Ziel
-    (Da JSBSim2D-v4 leider nicht funktioniert)
+# class JSBSimEnv2D_v5(JSBSimEnv2D_v2): 
+#     env_name = 'JSBSim2D-v6'
+#     '''
+#     Wie JSBSim2D-v2, aber mit nur einem Block pro episode. Der liegt dafür genau zwischen Start und Ziel
+#     (Da JSBSim2D-v4 leider nicht funktioniert)
 
-    '''
+#     '''
 
-    def __init__(self, terrain='singleblock', save_trajectory = False, render_before_reset=False):
-        super().__init__(terrain, save_trajectory, render_before_reset)
+#     def __init__(self, terrain='singleblock', save_trajectory = False, render_before_reset=False):
+#         super().__init__(terrain, save_trajectory, render_before_reset)
 
-    def reset(self):
-        obs = super().reset()
-        self.terrain.reset_map()
-        self.terrain.create_block_between(self.start[:2], self.goal[0:2])
-        return obs
+#     def reset(self):
+#         obs = super().reset()
+#         self.terrain.reset_map()
+#         self.terrain.create_block_between(self.start[:2], self.goal[0:2])
+#         return obs
         
 
 register(
