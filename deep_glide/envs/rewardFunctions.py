@@ -150,8 +150,8 @@ def _reward_v6(self: AbstractJSBSimEnv):
         else:
             rew = - dist_target / energy * 29.10
     elif self.terminal_condition == TerminationCondition.Arrived: 
-        rew_dist = (self.RANGE_DIST-dist_target)/self.RANGE_DIST*5
-        rew_angle = (self.RANGE_ANGLE-delta_angle) / self.RANGE_ANGLE * 5
+        rew_dist = (self.RANGE_DIST-dist_target)/self.RANGE_DIST*(10-self.ANGLE_IMPORTANCE)
+        rew_angle = (self.RANGE_ANGLE-delta_angle) / self.RANGE_ANGLE * self.ANGLE_IMPORTANCE
         rew = rew_angle + rew_dist
     else:
         rew_dist = min(self.RANGE_DIST-dist_target,0)/3000/1.3

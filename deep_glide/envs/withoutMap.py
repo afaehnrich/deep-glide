@@ -348,9 +348,13 @@ class JSBSimEnv_v6(JSBSimEnv_v5):
     Dieses Env kombiniert v5 (Reward nur, wenn am Boden angekommen) 
     mit v4 (Final reward abhängig vom Anflugwinkel) 
     '''
+    def __init__(self, terrain='block', save_trajectory = False, render_before_reset=False,  range_angle = math.pi/5, angle_importance=0.5):
+        super().__init__(terrain, save_trajectory, render_before_reset)
+        self.RANGE_ANGLE = range_angle  # in rad | Toleranz des Anflugwinkels, bei dem ein positiver Reward gegeben wird
+        self.ANGLE_IMPORTANCE = angle_importance * 10
 
     RANGE_DIST = 500 # in m | Umkreis um das Ziel in Metern, bei dem es einen positiven Reward gibt
-    RANGE_ANGLE = math.pi/5 # in rad | Toleranz des Anflugwinkels, bei dem ein positiver Reward gegeben wird
+    #RANGE_ANGLE = math.pi/5 # in rad | Toleranz des Anflugwinkels, bei dem ein positiver Reward gegeben wird
     _checkFinalConditions = rewardFunctions._checkFinalConditions_v6
     _reward = rewardFunctions._reward_v6
 

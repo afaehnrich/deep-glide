@@ -141,9 +141,10 @@ class JSBSimEnv2D_v4(JSBSimEnv2D_v2):
     _checkFinalConditions = rewardFunctions._checkFinalConditions_v6
     _reward = rewardFunctions._reward_v6
 
-    def __init__(self, terrain='block', save_trajectory = False, render_before_reset=False, range_dist=500, range_angle = math.pi/5):
+    def __init__(self, terrain='block', save_trajectory = False, render_before_reset=False, range_dist=500, range_angle = math.pi/5, angle_importance=0.5):
         super().__init__(terrain, save_trajectory, render_before_reset, range_dist)
         self.RANGE_ANGLE = range_angle  # in rad | Toleranz des Anflugwinkels, bei dem ein positiver Reward gegeben wird
+        self.ANGLE_IMPORTANCE = angle_importance * 10
 
 class JSBSimEnv2D_v5(JSBSimEnv2D_v4): 
     env_name = 'JSBSim2D-v5'
