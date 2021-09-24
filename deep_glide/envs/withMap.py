@@ -14,6 +14,7 @@ from deep_glide.utils import angle_between
 from gym import spaces 
 from matplotlib import pyplot as plt
 import math
+import os
 
 class AbstractJSBSimEnv2D(JSBSimEnv_v0):
 
@@ -95,6 +96,20 @@ class JSBSimEnv2D_v1(JSBSimEnv2D_v0):
     def __init__(self, terrain='block', save_trajectory = False, render_before_reset=False):
         super().__init__(terrain, save_trajectory, render_before_reset)
 
+# class JSBSimEnv2D_v2(JSBSimEnv2D_v1): 
+#     env_name = 'JSBSim2D-v2'
+
+#     '''
+#     Wie JSBSim_v5, aber mit Map.
+#     '''
+
+#     def __init__(self, terrain='block', save_trajectory = False, render_before_reset=False, range_dist = 500):
+#         super().__init__(terrain, save_trajectory, render_before_reset)
+#         self.RANGE_DIST = range_dist  # in m | Umkreis um das Ziel in Metern, bei dem es einen positiven Reward gibt
+
+#     _checkFinalConditions = rewardFunctions._checkFinalConditions_v5
+#     _reward = rewardFunctions._reward_v5
+
 class JSBSimEnv2D_v2(JSBSimEnv2D_v1): 
     env_name = 'JSBSim2D-v2'
 
@@ -102,9 +117,28 @@ class JSBSimEnv2D_v2(JSBSimEnv2D_v1):
     Wie JSBSim_v5, aber mit Map.
     '''
 
-    def __init__(self, terrain='block', save_trajectory = False, render_before_reset=False, range_dist = 500):
+    def __init__(self, terrain='block', save_trajectory = False, render_before_reset=False, range_dist = 500, goto_time = 5.):
         super().__init__(terrain, save_trajectory, render_before_reset)
         self.RANGE_DIST = range_dist  # in m | Umkreis um das Ziel in Metern, bei dem es einen positiven Reward gibt
+        self.goto_time = goto_time
+        self.log_fn = 'Log_JSBSim2D-v2_final_heights'
+        i=1
+        while os.path.exists('{}_{}.csv'.format(self.log_fn, i)): i+=1
+        self.log_fn = '{}_{}.csv'.format(self.log_fn, i)
+        with open(self.log_fn,'w') as fd:
+            fd.write('height; terrain_height\n')  
+
+    # def reset(self) -> object: #->observation
+    #     ret = super().reset()
+    #     self.timer_goto = SimTimer(self.goto_time)
+    #     return ret
+
+    def step(self, action):
+        new_state, reward, done, info = super().step(action)
+        if done:
+            with open(self.log_fn,'a') as fd:
+                fd.write('{:f}; {:f}\n'.format(self.pos[2],self.terrain.altitude(self.pos[0], self.pos[1])).replace('.',','))
+        return new_state, reward, done, info
 
     _checkFinalConditions = rewardFunctions._checkFinalConditions_v5
     _reward = rewardFunctions._reward_v5
