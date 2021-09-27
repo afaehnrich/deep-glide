@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from enum import auto
-from deep_glide.envs.withoutMap import JSBSimEnv_v0
+from deep_glide.envs.withoutMap import Scenario_A
 import numpy as np
 from deep_glide.sim import Sim, SimState, TerrainBlockworld, TerrainClass, TerrainClass90m, TerrainOcean, TerrainSingleBlocks
 from deep_glide.envs.abstractEnvironments import AbstractJSBSimEnv, TerminationCondition
@@ -16,7 +16,7 @@ from matplotlib import pyplot as plt
 import math
 import os
 
-class AbstractJSBSimEnv2D(JSBSimEnv_v0):
+class AbstractJSBSimEnv2D(Scenario_A):
 
     metadata = {'render.modes': ['human']}
 
@@ -72,12 +72,12 @@ class AbstractJSBSimEnv2D(JSBSimEnv_v0):
         return state
 
 
-class JSBSimEnv2D_v0(AbstractJSBSimEnv2D): 
+class Scenario_A_Terrain(AbstractJSBSimEnv2D): 
 
     # stateNormalizer = Normalizer('JsbSimEnv2D_v0')
     # mapNormalizer = Normalizer2D('JsbSimEnv2D_v0_map')
 
-    env_name = 'JSBSim2D-v0'
+    env_name = 'Scenario_A_Terrain-v0'
 
     '''
     In diesem Env ist der Reward abhängig davon, wie nahe der Agent dem Ziel gekommen ist. 
@@ -88,84 +88,39 @@ class JSBSimEnv2D_v0(AbstractJSBSimEnv2D):
         super().__init__(terrain, save_trajectory, render_before_reset)
 
 
-class JSBSimEnv2D_v1(JSBSimEnv2D_v0): 
-    env_name = 'JSBSim2D-v1'
-    '''
-    Wie JSBSimEnv2D_v0, aber mit richtigen Hindernissen
-    '''
-    def __init__(self, terrain='block', save_trajectory = False, render_before_reset=False):
-        super().__init__(terrain, save_trajectory, render_before_reset)
-
-# class JSBSimEnv2D_v2(JSBSimEnv2D_v1): 
-#     env_name = 'JSBSim2D-v2'
-
-#     '''
-#     Wie JSBSim_v5, aber mit Map.
-#     '''
-
-#     def __init__(self, terrain='block', save_trajectory = False, render_before_reset=False, range_dist = 500):
-#         super().__init__(terrain, save_trajectory, render_before_reset)
-#         self.RANGE_DIST = range_dist  # in m | Umkreis um das Ziel in Metern, bei dem es einen positiven Reward gibt
-
-#     _checkFinalConditions = rewardFunctions._checkFinalConditions_v5
-#     _reward = rewardFunctions._reward_v5
-
-class JSBSimEnv2D_v2(JSBSimEnv2D_v1): 
-    env_name = 'JSBSim2D-v2'
+class Scenario_B_Terrain(Scenario_A_Terrain): 
+    env_name = 'Scenario_B_Terrain-v0'
 
     '''
     Wie JSBSim_v5, aber mit Map.
     '''
 
-    def __init__(self, terrain='block', save_trajectory = False, render_before_reset=False, range_dist = 500, goto_time = 5.):
+    def __init__(self, terrain='ocean', save_trajectory = False, render_before_reset=False, range_dist = 500, goto_time = 5.):
         super().__init__(terrain, save_trajectory, render_before_reset)
         self.RANGE_DIST = range_dist  # in m | Umkreis um das Ziel in Metern, bei dem es einen positiven Reward gibt
         self.goto_time = goto_time
-        self.log_fn = 'Log_JSBSim2D-v2_final_heights'
-        i=1
-        while os.path.exists('{}_{}.csv'.format(self.log_fn, i)): i+=1
-        self.log_fn = '{}_{}.csv'.format(self.log_fn, i)
-        with open(self.log_fn,'w') as fd:
-            fd.write('height; terrain_height\n')  
+        # Aktivieren, wenn mehr Logging benötigt wird:
+        # self.log_fn = 'Log_JSBSim2D-v2_final_heights'
+        # i=1
+        # while os.path.exists('{}_{}.csv'.format(self.log_fn, i)): i+=1
+        # self.log_fn = '{}_{}.csv'.format(self.log_fn, i)
+        # with open(self.log_fn,'w') as fd:
+        #     fd.write('height; terrain_height\n')  
 
-    # def reset(self) -> object: #->observation
-    #     ret = super().reset()
-    #     self.timer_goto = SimTimer(self.goto_time)
-    #     return ret
 
     def step(self, action):
         new_state, reward, done, info = super().step(action)
-        if done:
-            with open(self.log_fn,'a') as fd:
-                fd.write('{:f}; {:f}\n'.format(self.pos[2],self.terrain.altitude(self.pos[0], self.pos[1])).replace('.',','))
+        # Aktivieren, wenn mehr Logging benötigt wird:
+        # if done:
+        #     with open(self.log_fn,'a') as fd:
+        #         fd.write('{:f}; {:f}\n'.format(self.pos[2],self.terrain.altitude(self.pos[0], self.pos[1])).replace('.',','))
         return new_state, reward, done, info
 
     _checkFinalConditions = rewardFunctions._checkFinalConditions_v5
     _reward = rewardFunctions._reward_v5
 
-class JSBSimEnv2D_v3(JSBSimEnv2D_v2): 
-    env_name = 'JSBSim2D-v3'
-
-    '''
-    Wie JSBSim_v5, aber mit Map.    
-    Observation Shape angepasst für CNNs anstelle von MLPs
-    '''
-
-    def __init__(self, terrain='block', save_trajectory = False, render_before_reset=False, range_dist = 500):
-        super().__init__(terrain, save_trajectory, render_before_reset, range_dist)
-        self.observation_space = self.observation_space = spaces.Box(
-            low=-math.inf, high=math.inf, shape=(1,37, 36)
-        )
-
-
-    def _get_state(self):
-        # super observation : 32x32 + 15x1 --> 17x1 anhängen und dann in 33x32 umformen
-        state = np.concatenate((super()._get_state(), np.zeros(21)))
-        state = np.reshape(state, (1,37,36))
-        return state
-
-class JSBSimEnv2D_v4(JSBSimEnv2D_v2): 
-    env_name = 'JSBSim2D-v4'
+class Scenario_C_Terrain(Scenario_B_Terrain): 
+    env_name = 'Scenario_C_Terrain-v0'
 
     '''
     Wie JSBSim_v6, aber mit Map.
@@ -175,90 +130,30 @@ class JSBSimEnv2D_v4(JSBSimEnv2D_v2):
     _checkFinalConditions = rewardFunctions._checkFinalConditions_v6
     _reward = rewardFunctions._reward_v6
 
-    def __init__(self, terrain='block', save_trajectory = False, render_before_reset=False, range_dist=500, range_angle = math.pi/5, angle_importance=0.5):
+    def __init__(self, terrain='ocean', save_trajectory = False, render_before_reset=False, range_dist=500, range_angle = math.pi/5, angle_importance=0.5):
         super().__init__(terrain, save_trajectory, render_before_reset, range_dist)
         self.RANGE_ANGLE = range_angle  # in rad | Toleranz des Anflugwinkels, bei dem ein positiver Reward gegeben wird
         self.ANGLE_IMPORTANCE = angle_importance * 10
 
-class JSBSimEnv2D_v5(JSBSimEnv2D_v4): 
-    env_name = 'JSBSim2D-v5'
-    '''
-    Wie JSBSim2D-v4, aber mit nur einem Block pro episode. Der liegt dafür genau zwischen Start und Ziel
-
-    '''
-
-    def __init__(self, terrain='singleblock', save_trajectory = False, render_before_reset=False, range_dist=500, range_angle = math.pi/5):
-        super().__init__(terrain, save_trajectory, render_before_reset, range_dist, range_angle)
-
-    def reset(self):
-        obs = super().reset()
-        self.terrain.reset_map()
-        self.terrain.create_block_between(self.start[:2], self.goal[0:2])
-        return obs
-        
-# class JSBSimEnv2D_v5(JSBSimEnv2D_v2): 
-#     env_name = 'JSBSim2D-v6'
-#     '''
-#     Wie JSBSim2D-v2, aber mit nur einem Block pro episode. Der liegt dafür genau zwischen Start und Ziel
-#     (Da JSBSim2D-v4 leider nicht funktioniert)
-
-#     '''
-
-#     def __init__(self, terrain='singleblock', save_trajectory = False, render_before_reset=False):
-#         super().__init__(terrain, save_trajectory, render_before_reset)
-
-#     def reset(self):
-#         obs = super().reset()
-#         self.terrain.reset_map()
-#         self.terrain.create_block_between(self.start[:2], self.goal[0:2])
-#         return obs
         
 
 register(
-    id='JSBSim2D-v0',
-    entry_point='deep_glide.envs.withMap:JSBSimEnv2D_v0',
+    id='Scenario_A_Terrain-v0',
+    entry_point='deep_glide.envs.withMap:Scenario_A_Terrain',
     max_episode_steps=999,
     reward_threshold=1000.0,
 )
 
 register(
-    id='JSBSim2D-v1',
-    entry_point='deep_glide.envs.withMap:JSBSimEnv2D_v1',
+    id='Scenario_B_Terrain-v0',
+    entry_point='deep_glide.envs.withMap:Scenario_B_Terrain',
     max_episode_steps=999,
     reward_threshold=1000.0,
 )
 
 register(
-    id='JSBSim2D-v2',
-    entry_point='deep_glide.envs.withMap:JSBSimEnv2D_v2',
-    max_episode_steps=999,
-    reward_threshold=1000.0,
-)
-
-register(
-    id='JSBSim2D-v3',
-    entry_point='deep_glide.envs.withMap:JSBSimEnv2D_v3',
-    max_episode_steps=999,
-    reward_threshold=1000.0,
-)
-
-register(
-    id='JSBSim2D-v4',
-    entry_point='deep_glide.envs.withMap:JSBSimEnv2D_v4',
-    max_episode_steps=999,
-    reward_threshold=1000.0,
-)
-
-register(
-    id='JSBSim2D-v5',
-    entry_point='deep_glide.envs.withMap:JSBSimEnv2D_v5',
-    max_episode_steps=999,
-    reward_threshold=1000.0,
-)
-
-register(
-    id='JSBSim2D-v6',
-    entry_point='deep_glide.envs.withMap:JSBSimEnv2D_v6',
+    id='Scenario_C_Terrain-v0',
+    entry_point='deep_glide.envs.withMap:Scenario_C_Terrain',
     max_episode_steps=999,
     reward_threshold=1000.0,
 )
