@@ -1,5 +1,7 @@
 #!/bin/sh
-N_STEPS=100
+N_STEPS=1000000
+
+mkdir -p logs
 
 # ==========================
 # Tabelle 6: Basis-Szenarien

@@ -1,5 +1,7 @@
 #!/bin/sh
-N_STEPS=100
+N_STEPS=100000
+
+mkdir -p logs_enjoy
 
 # ==========================
 # Tabelle 6: Basis-Szenarien
