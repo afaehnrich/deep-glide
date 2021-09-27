@@ -27,14 +27,16 @@ RUN apt-get -y update \
 ENV CODE_DIR /root/code
 ENV VENV /root/venv
 
-RUN mkdir -p ${CODE_DIR}/rl_zoo
 RUN rm -rf $HOME/.cache/pip
     
 RUN pip uninstall -y stable-baselines3 torch
 RUN pip install torch==1.8.1+cu111 torchvision==0.9.1+cu111 torchaudio==0.8.1 -f https://download.pytorch.org/whl/torch_stable.html
 RUN pip install gym==0.17.3
-RUN pip install box2d-py==2.3.8 pybullet gym-minigrid scikit-optimize optuna pytablewriter seaborn pyyaml>=5.1 sb3-contrib>=1.1.0a7
-RUN pip install wheel numpy matplotlib jsbsim toml datetime Flask tensorboard traits
+RUN pip install box2d-py==2.3.8 pybullet gym-minigrid scikit-optimize optuna pytablewriter seaborn pyyaml>=5.1 
+# RUN pip install sb3-contrib>=1.1.0a7
+RUN pip install wheel numpy matplotlib jsbsim toml datetime Flask tensorboard traits xlsxwriter
+RUN pip install sb3-contrib==1.0 stable-baselines3==1.1.0a3
+
 
 ENV PATH=$VENV/bin:$PATH
 
@@ -47,19 +49,17 @@ WORKDIR ${CODE_DIR}
 #JSBSim git clonen, damit wir Zugriff auf die Flugzeugmodelle haben
 RUN git clone https://github.com/JSBSim-Team/jsbsim.git
 
-# kompatible Versionen von stable-baselines3 und rl-baselines3-zoo von Git holen. Sonst gibts Fehlermeldung.
+# kompatible Versionen von rl-baselines3-zoo von Git holen. Sonst gibts Fehlermeldung.
 
-RUN git clone https://github.com/DLR-RM/rl-baselines3-zoo.git
-#RUN rm -r stable-baselines3
-RUN git clone https://github.com/DLR-RM/stable-baselines3.git
+RUN git clone https://github.com/afaehnrich/rl-baselines3-zoo.git
 
 ADD . ${CODE_DIR}/deep-glide
 # environment registration für die eigenen environemnts in rl-zoo integrieren
 RUN cp -v -rt ${CODE_DIR}/rl-baselines3-zoo ${CODE_DIR}/deep-glide/rl_zoo/*
 # deep-glide als Python-Modul installieren
-RUN pip install -e ./stable-baselines3
 RUN pip install -e ./deep-glide
-WORKDIR ${CODE_DIR}/deep-glide
+WORKDIR ${CODE_DIR}/rl-baselines3-zoo
 RUN mkdir -p logs
-# Agent trainieren
+RUN mkdir -p logs_enjoy
+
 CMD /bin/bash
